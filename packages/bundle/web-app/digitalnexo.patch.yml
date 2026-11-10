@@ -1,5 +1,6 @@
 # The Digital Nexo layer over dsh-web-app, applied last (after the presets) to
-# the browser surface.
+# the browser surface. It complements packages/bundle/base/digitalnexo.patch.yml,
+# which removes the DeepSeek services from every base-backed profile.
 
 # ── Brand ───────────────────────────────────────────────────────────────────
 # The official occupants stay unmounted; the Digital Nexo package fills the
@@ -10,3 +11,35 @@
 - insert:
     - id: ui-brand-digitalnexo
       name: '@digitalnexo/dsh-client-ui-brand'
+
+# ── DeepSeek account surfaces ───────────────────────────────────────────────
+# The Account settings section, the sidebar account menu, the credit
+# onboarding, and the Remote they call.
+- id: ui-settings-account
+  disabled: true
+
+- id: account-controller
+  disabled: true
+
+# ── DeepSeek web-search settings page ───────────────────────────────────────
+- id: ui-settings-web-search
+  disabled: true
+
+# ── Feedback ────────────────────────────────────────────────────────────────
+# Like/Dislike under assistant messages and the feedback dialog exist to send a
+# Session-log prefix to DeepSeek; with that upload removed they would promise
+# something that no longer happens.
+- id: message-feedback
+  disabled: true
+
+- id: ui-message-feedback
+  disabled: true
+
+# ── Desktop analytics ───────────────────────────────────────────────────────
+# Already off outside the desktop profile; disabled outright so no profile
+# reports product analytics to DeepSeek.
+- id: desktop-product-telemetry
+  disabled: true
+
+- id: product-analytics
+  disabled: true

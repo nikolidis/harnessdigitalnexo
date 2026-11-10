@@ -1,0 +1,14 @@
+# The Digital Nexo layer over dsh-acp-app, applied after ./cordis.patch.yml.
+#
+# The base layer (packages/bundle/base/digitalnexo.patch.yml) already removes the
+# DeepSeek services from every base-backed profile, including this one. What is
+# left here is this bundle's own default model route, which upstream pins to
+# `deepseek-official` — a route this distribution does not mount.
+#
+# The editor that drives this profile selects the model per session, so this value
+# only decides what an invocation that names no model asks for. A patch replaces
+# the whole `config`, so both keys are restated.
+- id: acp
+  config:
+    provider: mistral
+    model: mistral-large-latest

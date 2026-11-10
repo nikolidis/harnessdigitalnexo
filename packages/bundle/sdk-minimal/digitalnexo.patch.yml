@@ -1,0 +1,36 @@
+# The Digital Nexo layer over dsh-sdk-minimal, applied after ./cordis.patch.yml.
+#
+# This profile is the one shipped composition that does NOT build on dsh-base, so
+# the base layer's removals do not reach it: it states its whole tree itself, and
+# that tree names DeepSeek directly. The same three removals are repeated here.
+#
+# This profile mounts no settings and no credential store, so a route's key is
+# read from the process environment ($MISTRAL_API_KEY below). An SDK client that
+# wants another provider replaces the `llm-pi-ai` row from its own profile patch.
+
+# ── Request fields that ride official DeepSeek requests ─────────────────────
+# The registry and its two contributors: the Session-log upload and the list of
+# active plugin packages.
+- id: deepseek-llm-api-extensions
+  disabled: true
+
+- id: session-log-deepseek
+  disabled: true
+
+- id: plugin-package-inventory-deepseek
+  disabled: true
+
+# ── Model route ─────────────────────────────────────────────────────────────
+# Upstream's only route here is the native DeepSeek adapter. It is replaced by
+# the multi-provider pi-ai adapter with one Mistral route; the SDK client still
+# selects the model in its initialization request, as upstream documents.
+- id: llm-deepseek
+  disabled: true
+
+- insert:
+    - id: llm-pi-ai
+      name: '@deepseek-ai/dsh-llm-pi-ai'
+      config:
+        providers:
+          mistral:
+            apiKeyEnv: MISTRAL_API_KEY

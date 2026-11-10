@@ -1,0 +1,73 @@
+# The Digital Nexo layer over dsh-base, applied after ./cordis.patch.yml to every
+# base-backed profile (web, desktop, headless, acp, sdk).
+#
+# Purpose: this distribution ships no DeepSeek service. The account sign-in, the
+# native DeepSeek model routes, DeepSeek web search, telemetry, and feedback are
+# switched off here, in one place, without touching the upstream patch above.
+# Third-party model providers (the pi-ai routes configured from the Models page),
+# anonymous HTTP fetch, and plugin installation stay exactly as upstream ships them.
+#
+# Rows are disabled rather than deleted so an upstream update that renames or
+# adds a row shows up as a conflict here instead of silently re-enabling it.
+
+# ── DeepSeek account ────────────────────────────────────────────────────────
+# Browser sign-in to the DeepSeek platform and the credential it stores.
+- id: deepseek-account
+  disabled: true
+
+# ── Native DeepSeek model routes ────────────────────────────────────────────
+# `deepseek-official` (API key) and `deepseek-account` (sign-in) routes.
+- id: llm-deepseek
+  disabled: true
+
+- id: llm-deepseek-account
+  disabled: true
+
+# Request-field registry used only by the native DeepSeek adapter, and its two
+# contributors: the Session-log upload and the plugin-package list that ride
+# official DeepSeek requests.
+- id: deepseek-llm-api-extensions
+  disabled: true
+
+- id: session-log-deepseek
+  disabled: true
+
+- id: plugin-package-inventory-deepseek
+  disabled: true
+
+# The stock default points at the removed `deepseek-official` route. Mistral is
+# the provider Digital Nexo deploys; the route appears once its API key is added
+# under Settings → Models, and until then the composer asks the user to pick a
+# model. Selecting any model in the UI replaces this default.
+- id: agent-default-model
+  config:
+    provider: mistral
+    model: mistral-large-latest
+
+# ── Telemetry and feedback ──────────────────────────────────────────────────
+# The OpenTelemetry pipeline that uploads a Session-log prefix to
+# dsh-otel-collector.deepseeksvc.com after feedback, and the `/feedback` command
+# that triggers it. Upstream needs DSH_TELEMETRY_DISABLED to opt out; here the
+# rows never start, whatever the environment says.
+- id: otel
+  disabled: true
+
+- id: session-telemetry-otel
+  disabled: true
+
+- id: command-feedback
+  disabled: true
+
+# ── DeepSeek web search ─────────────────────────────────────────────────────
+# DeepSeek Messages search and the DeepSeek Search/Fetch APIs. `web_fetch`
+# keeps working through the anonymous HTTP provider; `web_search` is offered to
+# the model only when a search provider is installed and usable.
+- id: web-search-deepseek
+  disabled: true
+
+- id: web-deepseek-api
+  disabled: true
+
+- id: web
+  config:
+    fetchProvider: http

@@ -25,12 +25,16 @@
   "files": [
     "lib/index.js",
     "cordis.patch.yml",
+    "digitalnexo.patch.yml",
     "lib/types/**/*.d.ts"
   ],
   "license": "MIT",
   "dsh": {
     "bundle": {
-      "patch": "./cordis.patch.yml"
+      "patch": [
+        "./cordis.patch.yml",
+        "./digitalnexo.patch.yml"
+      ]
     }
   },
   "dependencies": {
