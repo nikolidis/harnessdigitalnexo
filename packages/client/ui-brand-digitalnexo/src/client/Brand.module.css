@@ -1,0 +1,41 @@
+/* Digital Nexo brand colours. The ink follows the shell's primary label token so
+   the artwork keeps its contrast in both themes; the accent is the website's
+   --accent (oklch(0.45 0.065 30), #754740) with a lighter tint of the same hue
+   wherever it sits on a dark surface. */
+
+.mark,
+.name {
+  display: block;
+  flex: none;
+}
+
+/* Square tile: a filled rounded square with the "D." monogram knocked out. */
+.tile {
+  fill: var(--dsw-alias-label-primary);
+}
+
+.tileGlyph {
+  fill: var(--dsw-alias-label-primary-inverted);
+}
+
+/* The tile is dark in the light theme, so its period uses the light tint there. */
+.tileAccent {
+  fill: #e59c8f;
+}
+
+:global(body[data-ds-dark-theme]) .tileAccent {
+  fill: #754740;
+}
+
+/* Wordmark: lettering in the primary ink, period in the accent. */
+.ink {
+  fill: var(--dsw-alias-label-primary);
+}
+
+.accent {
+  fill: #754740;
+}
+
+:global(body[data-ds-dark-theme]) .accent {
+  fill: #e59c8f;
+}

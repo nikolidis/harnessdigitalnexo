@@ -1,0 +1,12 @@
+# The Digital Nexo layer over dsh-web-app, applied last (after the presets) to
+# the browser surface.
+
+# ── Brand ───────────────────────────────────────────────────────────────────
+# The official occupants stay unmounted; the Digital Nexo package fills the
+# sidebar brand slots and the start-screen mark instead.
+- id: ui-brand-official
+  disabled: true
+
+- insert:
+    - id: ui-brand-digitalnexo
+      name: '@digitalnexo/dsh-client-ui-brand'
