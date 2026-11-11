@@ -60,8 +60,15 @@
 
 # ── DeepSeek web search ─────────────────────────────────────────────────────
 # DeepSeek Messages search and the DeepSeek Search/Fetch APIs. `web_fetch`
-# keeps working through the anonymous HTTP provider; `web_search` is offered to
-# the model only when a search provider is installed and usable.
+# keeps working through the anonymous HTTP provider.
+#
+# With those two gone no search provider is mounted, and by default the web
+# service would still report search as ready, so the model would be offered a
+# `web_search` whose every call fails. `readyRequiresProvider` withholds the
+# tool until a search provider is mounted and usable, which is what the project
+# does on a third-party model route without a DeepSeek key. The provider is
+# then picked up on its own: no `searchProvider` pin is needed while it is the
+# only one.
 - id: web-search-deepseek
   disabled: true
 
@@ -71,3 +78,4 @@
 - id: web
   config:
     fetchProvider: http
+    readyRequiresProvider: true

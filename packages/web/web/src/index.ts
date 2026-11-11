@@ -59,6 +59,12 @@ export interface WebRuntimeConfig {
   readonly searchProvider: Volatile<string | undefined>
   /** Explicit fetch provider id. Omitted = auto-select when exactly one usable. */
   readonly fetchProvider: Volatile<string | undefined>
+  /**
+   * Whether `searchReady()` and `fetchReady()` answer false while no provider is usable. False
+   * keeps the answer true, so a call reports `WEB_PROVIDER_UNAVAILABLE`; a composition that
+   * ships no backend for a capability sets true so that capability is withheld until one is added.
+   */
+  readonly readyRequiresProvider: boolean
 }
 
 /**
@@ -82,6 +88,7 @@ export class WebRuntime extends Service {
   static Config = z.object({
     searchProvider: z.string().volatile(),
     fetchProvider: z.string().volatile(),
+    readyRequiresProvider: z.boolean().default(false),
   })
 
   private searchProviders = new Map<string, WebSearchProvider>()
@@ -148,12 +155,14 @@ export class WebRuntime extends Service {
    * Whether the provider `search()` would select can authenticate a search made for a
    * model request on the `llmProvider` chat route. Asks only that provider's `ready()`;
    * one without `ready()` counts as ready. Makes no network calls. A selection failure
-   * answers true, because `search()` reports that failure as a structured `WebError`.
+   * answers true, because `search()` reports that failure as a structured `WebError`;
+   * with `readyRequiresProvider`, having no usable provider answers false instead.
    * @param llmProvider - the provider route id of the model request, when known.
-   * @returns false only when the selected provider reports that it cannot authenticate.
+   * @returns false when the selected provider reports that it cannot authenticate, or when
+   *   `readyRequiresProvider` is set and no provider is usable.
    */
   async searchReady(llmProvider?: string): Promise<boolean> {
-    return await selectedProviderReady(() => this.selectSearchProvider(), llmProvider)
+    return await selectedProviderReady(() => this.selectSearchProvider(), llmProvider, this.config.readyRequiresProvider)
   }
 
   /** Select the search provider with the rules above, throwing the matching {@link WebError}. */
@@ -181,12 +190,14 @@ export class WebRuntime extends Service {
    * Whether the provider `fetch()` would select can authenticate a fetch made for a
    * model request on the `llmProvider` chat route. Asks only that provider's `ready()`;
    * one without `ready()` counts as ready. Makes no network calls. A selection failure
-   * answers true, because `fetch()` reports that failure as a structured `WebError`.
+   * answers true, because `fetch()` reports that failure as a structured `WebError`;
+   * with `readyRequiresProvider`, having no usable provider answers false instead.
    * @param llmProvider - the provider route id of the model request, when known.
-   * @returns false only when the selected provider reports that it cannot authenticate.
+   * @returns false when the selected provider reports that it cannot authenticate, or when
+   *   `readyRequiresProvider` is set and no provider is usable.
    */
   async fetchReady(llmProvider?: string): Promise<boolean> {
-    return await selectedProviderReady(() => this.selectFetchProvider(), llmProvider)
+    return await selectedProviderReady(() => this.selectFetchProvider(), llmProvider, this.config.readyRequiresProvider)
   }
 
   /** Select the fetch provider with the rules above, throwing the matching {@link WebError}. */
@@ -209,13 +220,20 @@ interface ResolvableProvider {
  * Ask the provider an operation selects whether it can authenticate for one chat route.
  * @param select - the operation's selection; throws its {@link WebError} when no provider qualifies.
  * @param llmProvider - the provider route id of the model request, when known.
+ * @param requiresProvider - whether having no usable provider answers false.
  * @returns the provider's answer; true when it has no `ready()` or selection fails, because the
- *   operation reports that failure itself.
+ *   operation reports that failure itself. With `requiresProvider`, the one selection failure
+ *   that means no provider is usable, `WEB_PROVIDER_UNAVAILABLE`, answers false.
  */
-async function selectedProviderReady(select: () => ResolvableProvider, llmProvider: string | undefined): Promise<boolean> {
+async function selectedProviderReady(
+  select: () => ResolvableProvider, llmProvider: string | undefined, requiresProvider: boolean,
+): Promise<boolean> {
   let provider: ResolvableProvider
   try { provider = select() }
-  catch (_selectionFailure) { return true /* The operation surfaces the same failure when called. */ }
+  catch (selectionFailure) {
+    // The operation surfaces the same failure when called; only an absent backend can be withheld instead.
+    return !(requiresProvider && selectionFailure instanceof WebError && selectionFailure.code === 'WEB_PROVIDER_UNAVAILABLE')
+  }
   return await provider.ready?.(llmProvider) ?? true
 }
 

@@ -4569,6 +4569,12 @@ export interface WebRuntimeConfig {
   readonly searchProvider: Volatile<string | undefined>
   /** Explicit fetch provider id. Omitted = auto-select when exactly one usable. */
   readonly fetchProvider: Volatile<string | undefined>
+  /**
+   * Whether `searchReady()` and `fetchReady()` answer false while no provider is usable. False
+   * keeps the answer true, so a call reports `WEB_PROVIDER_UNAVAILABLE`; a composition that
+   * ships no backend for a capability sets true so that capability is withheld until one is added.
+   */
+  readonly readyRequiresProvider: boolean
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-web -->
@@ -4956,6 +4962,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-user-questions` | — | [`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts) |
 | `@deepseek-ai/dsh-webhook` | `agents` · `agentDefaultModel` · `agentPresets` · `permissionPresets` · `sessionTitle` · `workspaceRegistry` | [`packages/experimental/webhook/src/index.ts`](../packages/experimental/webhook/src/index.ts) |
 | `@deepseek-ai/dsh-workspace` | `storageDomain` · `sessionPersistence` | [`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts) |
+| `@digitalnexo/dsh-client-ui-brand` | — | [`packages/client/ui-brand-digitalnexo/src/index.ts`](../packages/client/ui-brand-digitalnexo/src/index.ts) |
 <!-- END GENERATED config-catalog:no-config -->
 
 ## Seam packages (not directly loadable)

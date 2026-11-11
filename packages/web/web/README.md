@@ -45,6 +45,7 @@ Load the service and let a single mounted backend auto-select, or pin a provider
 |---|---|---|
 | `searchProvider` | (unset) | Pinned search provider id; unset auto-selects when exactly one is usable |
 | `fetchProvider` | (unset) | Pinned fetch provider id; unset auto-selects when exactly one is usable |
+| `readyRequiresProvider` | `false` | Whether `searchReady()` and `fetchReady()` answer false while no provider is usable |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-web) is the exhaustive source for every accepted field and its JSDoc.
 
@@ -80,7 +81,7 @@ A provider's availability is a cheap local check — for example whether its API
 <a id="search-readiness"></a>
 ### Search and fetch readiness
 
-`searchReady(llmProvider?)` and `fetchReady(llmProvider?)` ask the provider that `search()` or `fetch()` would select whether an operation made for a model request on that chat route has a credential to send; [`dsh-tool-web`](../tool-web/README.md#search-readiness) uses the answers to decide whether each model step admits `web_search` and `web_fetch`. A provider answers through its optional `ready(llmProvider)`, a configuration-only check that must not make network calls; a provider without it counts as ready. When selection fails, the readiness method answers true, because the operation reports that failure as a structured `WebError`. Readiness never changes which provider is selected.
+`searchReady(llmProvider?)` and `fetchReady(llmProvider?)` ask the provider that `search()` or `fetch()` would select whether an operation made for a model request on that chat route has a credential to send; [`dsh-tool-web`](../tool-web/README.md#search-readiness) uses the answers to decide whether each model step admits `web_search` and `web_fetch`. A provider answers through its optional `ready(llmProvider)`, a configuration-only check that must not make network calls; a provider without it counts as ready. When selection fails, the readiness method answers true, because the operation reports that failure as a structured `WebError`. A composition that ships no backend for a capability sets `readyRequiresProvider`: the one selection failure that means no provider is usable, `WEB_PROVIDER_UNAVAILABLE`, then answers false, so the tool is withheld until a backend is mounted instead of being offered with every call failing. Readiness never changes which provider is selected.
 
 ```text
 // false only when the selected provider cannot authenticate this route's operations:
@@ -123,7 +124,7 @@ The request and result types define the normalized vocabulary callers build on �
 
 ### Selection flow
 
-At call time the service resolves the provider — configured id first, then the unique usable provider — and throws the matching `WebError` when no clear winner exists. A search result then passes through `capSources`, which truncates `sources[]` to `maxResults` and flags `truncated`. `searchReady()` and `fetchReady()` resolve the same provider as the matching operation, answer true when resolution throws, and otherwise return the provider's `ready()` answer, or true when it has none. Registration is effect-based: providers register with the calling fiber and unregister when it disposes, and a duplicate id within a capability kind is rejected at registration.
+At call time the service resolves the provider — configured id first, then the unique usable provider — and throws the matching `WebError` when no clear winner exists. A search result then passes through `capSources`, which truncates `sources[]` to `maxResults` and flags `truncated`. `searchReady()` and `fetchReady()` resolve the same provider as the matching operation, answer true when resolution throws (false for `WEB_PROVIDER_UNAVAILABLE` under `readyRequiresProvider`), and otherwise return the provider's `ready()` answer, or true when it has none. Registration is effect-based: providers register with the calling fiber and unregister when it disposes, and a duplicate id within a capability kind is rejected at registration.
 
 </details>
 
@@ -160,7 +161,7 @@ No direct invalidation; the named consumer owns any request-prefix changes.
 
 These limits define when the service is incomplete on its own. They are current package constraints.
 
-- **No observation surface** — there is no provider-change event and no capability-status query; `searchReady()` and `fetchReady()` report only the selected provider's credential readiness and answer true when selection fails. Availability is observable only by running a search or fetch and routing the thrown code, and the no-provider failure is the generic `WEB_PROVIDER_UNAVAILABLE` with no per-provider reason enumeration ([Agent Note](../../../.agents/notes/archived/simplification/2026-07-04-drop-unconsumed-web-observation-surface.md)).
+- **No observation surface** — there is no provider-change event and no capability-status query; `searchReady()` and `fetchReady()` report only the selected provider's credential readiness and answer true when selection fails, except for an absent backend under `readyRequiresProvider`. Availability is observable only by running a search or fetch and routing the thrown code, and the no-provider failure is the generic `WEB_PROVIDER_UNAVAILABLE` with no per-provider reason enumeration ([Agent Note](../../../.agents/notes/archived/simplification/2026-07-04-drop-unconsumed-web-observation-surface.md)).
 - **Search requests carry only `query` and `maxResults`** — provider-neutral controls (recency, domain filters, regional hints, search depth) are deferred until the backends can honor them ([seam Agent Note](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.md)).
 - **`WebFetchBody` has no `pdf` arm** — text-extractable PDF support is named deferred work; the closed union makes adding it a compile-enforced change across the web packages.
 - **Provider-backed page extraction is out of scope of `fetch()`** — a Firecrawl/Tavily-style `web_extract` capability is deferred rather than widening the fetch operation.

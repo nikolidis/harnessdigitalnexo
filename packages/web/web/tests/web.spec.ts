@@ -34,7 +34,9 @@ function fetchResult(marker: string): WebFetchResult {
 }
 
 /** Mount a WebRuntime on a fresh root context with the given config. */
-async function mountWeb(config: { searchProvider?: string; fetchProvider?: string } = {}): Promise<{ ctx: Context; web: WebRuntime }> {
+async function mountWeb(
+  config: { searchProvider?: string; fetchProvider?: string; readyRequiresProvider?: boolean } = {},
+): Promise<{ ctx: Context; web: WebRuntime }> {
   const ctx = new Context()
   await ctx.plugin(WebRuntime, config)
   return { ctx, web: ctx.web }
@@ -209,6 +211,35 @@ describe('WebRuntime search readiness', () => {
     await expect(web.searchReady('deepseek-official')).resolves.toBe(true)
     await expect(web.search({ query: 'q' })).rejects.toBeInstanceOf(WebError)
   })
+
+  it.each([
+    ['nothing is registered', []],
+    ['providers exist but none is usable', [readyProvider('down', unavailable, true)]],
+  ] as const)('answers false with readyRequiresProvider when %s', async (_label, providers) => {
+    const { web } = await mountWeb({ readyRequiresProvider: true })
+    for (const provider of providers) web.registerSearchProvider(provider)
+    await expect(web.searchReady('mistral')).resolves.toBe(false)
+    await expect(web.search({ query: 'q' })).rejects.toMatchObject({ code: 'WEB_PROVIDER_UNAVAILABLE' })
+  })
+
+  it.each([
+    ['the configured provider is not registered', { searchProvider: 'missing' }, [readyProvider('other', available, false)]],
+    ['the configured provider is unavailable', { searchProvider: 'down' }, [readyProvider('down', unavailable, false)]],
+    ['several usable providers are registered', {}, [readyProvider('a', available, false), readyProvider('b', available, false)]],
+  ] as const)('still answers true with readyRequiresProvider when %s', async (_label, config, providers) => {
+    const { web } = await mountWeb({ ...config, readyRequiresProvider: true })
+    for (const provider of providers) web.registerSearchProvider(provider)
+    await expect(web.searchReady('mistral')).resolves.toBe(true)
+    await expect(web.search({ query: 'q' })).rejects.toBeInstanceOf(WebError)
+  })
+
+  it('asks the provider that becomes usable with readyRequiresProvider', async () => {
+    const { web } = await mountWeb({ readyRequiresProvider: true })
+    const asked: (string | undefined)[] = []
+    web.registerSearchProvider(readyProvider('exa', available, true, asked))
+    await expect(web.searchReady('mistral')).resolves.toBe(true)
+    expect(asked).toEqual(['mistral'])
+  })
 })
 
 describe('WebRuntime maxResults enforcement', () => {
@@ -295,6 +326,18 @@ describe('WebRuntime fetch readiness', () => {
     web.registerFetchProvider(readyFetchProvider('down', unavailable, false))
     await expect(web.fetchReady('deepseek-official')).resolves.toBe(true)
     await expect(web.fetch({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'WEB_PROVIDER_CONFIGURED_UNAVAILABLE' })
+  })
+
+  it('answers false with readyRequiresProvider when no fetch provider is usable', async () => {
+    const { web } = await mountWeb({ readyRequiresProvider: true })
+    await expect(web.fetchReady('mistral')).resolves.toBe(false)
+    await expect(web.fetch({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'WEB_PROVIDER_UNAVAILABLE' })
+  })
+
+  it('still answers true with readyRequiresProvider when the configured fetch provider is unavailable', async () => {
+    const { web } = await mountWeb({ fetchProvider: 'down', readyRequiresProvider: true })
+    web.registerFetchProvider(readyFetchProvider('down', unavailable, false))
+    await expect(web.fetchReady('mistral')).resolves.toBe(true)
   })
 })
 

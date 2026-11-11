@@ -45,6 +45,7 @@ kind: "package-reference"
 |---|---|---|
 | `searchProvider` | （未设置） | 固定的搜索提供方 id；未设置时仅在恰好一个可用时自动选择 |
 | `fetchProvider` | （未设置） | 固定的抓取提供方 id；未设置时仅在恰好一个可用时自动选择 |
+| `readyRequiresProvider` | `false` | 没有可用提供方时，`searchReady()` 与 `fetchReady()` 是否回答 false |
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-web)是每个受支持字段及其 JSDoc 的穷尽式真源。
 
@@ -80,7 +81,7 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 <a id="search-readiness"></a>
 ### 搜索与抓取就绪
 
-`searchReady(llmProvider?)` 与 `fetchReady(llmProvider?)` 询问 `search()` 或 `fetch()` 会选中的提供方：为该对话路由上的模型请求发起的操作是否有可发送的凭据；[`dsh-tool-web`](../tool-web/README.zh.md#search-readiness) 据此决定每个模型步骤是否准入 `web_search` 与 `web_fetch`。提供方通过可选的 `ready(llmProvider)` 回答，它是只检查配置的判断，禁止发起网络调用；未实现它的提供方视为就绪。选择失败时就绪方法回答 true，因为对应操作会把该失败报告为结构化 `WebError`。就绪判断从不改变选中哪个提供方。
+`searchReady(llmProvider?)` 与 `fetchReady(llmProvider?)` 询问 `search()` 或 `fetch()` 会选中的提供方：为该对话路由上的模型请求发起的操作是否有可发送的凭据；[`dsh-tool-web`](../tool-web/README.zh.md#search-readiness) 据此决定每个模型步骤是否准入 `web_search` 与 `web_fetch`。提供方通过可选的 `ready(llmProvider)` 回答，它是只检查配置的判断，禁止发起网络调用；未实现它的提供方视为就绪。选择失败时就绪方法回答 true，因为对应操作会把该失败报告为结构化 `WebError`。不为某项能力内置后端的组合可设置 `readyRequiresProvider`：此时表示没有可用提供方的那一种选择失败 `WEB_PROVIDER_UNAVAILABLE` 回答 false，于是在挂载后端之前工具不会提供给模型，而不是提供一个每次调用都失败的工具。就绪判断从不改变选中哪个提供方。
 
 ```text
 // false only when the selected provider cannot authenticate this route's operations:
@@ -123,7 +124,7 @@ const fetchOffered = await ctx.web.fetchReady('deepseek-official')
 
 ### 选择流程
 
-执行时，服务先按配置 id、再按唯一可用提供方解析提供方，没有明确赢家时抛出对应的 `WebError`。搜索结果随后经过 `capSources`：把 `sources[]` 截断到 `maxResults` 并标记 `truncated`。`searchReady()` 与 `fetchReady()` 解析与对应操作相同的提供方，解析抛错时回答 true，否则返回该提供方 `ready()` 的回答，提供方没有 `ready()` 时回答 true。注册基于 effect：提供方随调用 fiber 注册，fiber 释放时注销；同一能力类型下重复的 id 会在注册时被拒绝。
+执行时，服务先按配置 id、再按唯一可用提供方解析提供方，没有明确赢家时抛出对应的 `WebError`。搜索结果随后经过 `capSources`：把 `sources[]` 截断到 `maxResults` 并标记 `truncated`。`searchReady()` 与 `fetchReady()` 解析与对应操作相同的提供方，解析抛错时回答 true（在 `readyRequiresProvider` 下，`WEB_PROVIDER_UNAVAILABLE` 回答 false），否则返回该提供方 `ready()` 的回答，提供方没有 `ready()` 时回答 true。注册基于 effect：提供方随调用 fiber 注册，fiber 释放时注销；同一能力类型下重复的 id 会在注册时被拒绝。
 
 </details>
 
@@ -160,7 +161,7 @@ const fetchOffered = await ctx.web.fetchReady('deepseek-official')
 
 这些限制说明本服务单独使用时在哪些方面不完整。它们是当前包约束。
 
-- **没有观测接口**：没有提供方变更事件或能力状态查询；`searchReady()` 与 `fetchReady()` 只报告选中提供方的凭据就绪状态，选择失败时回答 true。可用性只能通过执行搜索或抓取并按抛出的 code 路由来观测，无提供方失败是通用的 `WEB_PROVIDER_UNAVAILABLE`，不枚举逐提供方原因（见 [Agent Note](../../../.agents/notes/archived/simplification/2026-07-04-drop-unconsumed-web-observation-surface.md)）。
+- **没有观测接口**：没有提供方变更事件或能力状态查询；`searchReady()` 与 `fetchReady()` 只报告选中提供方的凭据就绪状态，选择失败时回答 true，但 `readyRequiresProvider` 下没有后端的情形除外。可用性只能通过执行搜索或抓取并按抛出的 code 路由来观测，无提供方失败是通用的 `WEB_PROVIDER_UNAVAILABLE`，不枚举逐提供方原因（见 [Agent Note](../../../.agents/notes/archived/simplification/2026-07-04-drop-unconsumed-web-observation-surface.md)）。
 - **搜索请求只携带 `query` 与 `maxResults`**：提供方无关的控制项（新近程度、域名过滤条件、区域提示、搜索深度）暂缓至后端都能诚实支持时（见 [seam Agent Note](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.zh.md)）。
 - **`WebFetchBody` 没有 `pdf` 分支**：可提取文本的 PDF 支持属于明确的延期工作；封闭联合会使新增该分支成为跨 web 包、由编译强制执行的变更。
 - **提供方支持的页面提取不属于 `fetch()` 范围**：Firecrawl/Tavily 风格的 `web_extract` 能力延期，而不会扩展抓取操作。
