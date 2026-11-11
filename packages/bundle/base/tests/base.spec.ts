@@ -18,11 +18,13 @@ describe('dsh-base bundle', () => {
       readFileSync(resolve(root, 'package.json'), 'utf8'),
     ) as {
       dependencies?: Record<string, string>
-      dsh?: { bundle?: { patch?: string } }
+      dsh?: { bundle?: { patch?: string | readonly string[] } }
     }
-    expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
+    // This distribution appends its own layer after the project's; the rest of this
+    // case is about the project's layer, which stays first.
+    expect(manifest.dsh?.bundle?.patch).toEqual(['./cordis.patch.yml', './digitalnexo.patch.yml'])
     const parsed = yaml.load(
-      readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'),
+      readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8'),
       { schema: entryListSchema },
     )
     expect(Array.isArray(parsed)).toBe(true)

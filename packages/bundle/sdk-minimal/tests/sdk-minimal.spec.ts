@@ -16,11 +16,13 @@ describe('dsh-sdk-minimal bundle', () => {
     const root = fileURLToPath(new URL('..', import.meta.url))
     const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
       dependencies?: Record<string, string>
-      dsh?: { bundle?: { patch?: string } }
+      dsh?: { bundle?: { patch?: string | readonly string[] } }
     }
-    expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
+    // This distribution appends its own layer after the project's; the rest of this
+    // case is about the project's layer, which stays first.
+    expect(manifest.dsh?.bundle?.patch).toEqual(['./cordis.patch.yml', './digitalnexo.patch.yml'])
     const patches = yaml.load(
-      readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'),
+      readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8'),
       { schema: entryListSchema },
     ) as Array<{ insert?: Array<{ id?: string; inject?: string[]; name?: string; config?: Record<string, unknown>; disabled?: unknown }> }>
     expect(patches).toHaveLength(1)
@@ -89,8 +91,14 @@ describe('dsh-sdk-minimal bundle', () => {
       disabled: { __jsExpr: "process.platform !== 'win32'" },
       config: { shellDialect: 'pwsh', timeoutMs: 300000 },
     })
-    expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual(
-      [...new Set(rows.map(row => row.name).filter((name): name is string => name !== undefined).map(packageName))].sort(),
-    )
+    // Every layer's rows count: this distribution's layer adds the provider route
+    // that replaces the DeepSeek one, and its package must be declared too.
+    const overlay = yaml.load(
+      readFileSync(resolve(root, 'digitalnexo.patch.yml'), 'utf8'),
+      { schema: entryListSchema },
+    ) as Array<{ insert?: Array<{ name?: string }> }>
+    const names = [...rows, ...overlay.flatMap(patch => patch.insert ?? [])]
+      .map(row => row.name).filter((name): name is string => name !== undefined)
+    expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual([...new Set(names.map(packageName))].sort())
   })
 })

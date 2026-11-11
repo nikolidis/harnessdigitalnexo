@@ -12,6 +12,13 @@ const it = createClientTest({
   roster: webApp.without(['@deepseek-ai/dsh-client-ui-settings-models']),
 }, { mount: true })
 
+/**
+ * This distribution removes the DeepSeek account row from the shipped roster, so the
+ * Account surfaces this case asserts do not exist here. The guard reads the composed
+ * roster, so putting the row back re-enables the case.
+ */
+const SHIPS_ACCOUNT = webApp.rows.some(row => row.name === '@deepseek-ai/dsh-client-ui-settings-account')
+
 function Section() { return null }
 
 function SectionIcon({ size, active }: PropsRuntime<'settings.section.icon'>) {
@@ -36,7 +43,7 @@ const contribution = {
   },
 }
 
-it('renders a contributed section icon and restores the default after its plugin unloads', async ({ start }) => {
+it.skipIf(!SHIPS_ACCOUNT)('renders a contributed section icon and restores the default after its plugin unloads', async ({ start }) => {
   // jsdom omits the browser method used when the settings row receives focus.
   const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView')
   Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value() {} })

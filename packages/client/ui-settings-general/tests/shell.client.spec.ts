@@ -17,6 +17,13 @@ const SELF = '@deepseek-ai/dsh-client-ui-settings-general'
 const SIDEBAR = '@deepseek-ai/dsh-client-ui-sidebar'
 const it = createClientTest({ roster: webApp })
 const withoutSettingsAccess = createClientTest({ roster: webApp }, { access: action => action !== 'settings/describe' })
+
+/**
+ * This distribution removes the DeepSeek account row from the shipped roster, so the
+ * Account surfaces this case asserts do not exist here. The guard reads the composed
+ * roster, so putting the row back re-enables the case.
+ */
+const SHIPS_ACCOUNT = webApp.rows.some(row => row.name === '@deepseek-ai/dsh-client-ui-settings-account')
 /** The whole roster's first boot pays the cold module transform of every plugin package. */
 const COLD_BOOT_TIMEOUT_MS = 60_000
 
@@ -116,7 +123,7 @@ describe('ui-settings-general shell', () => {
     off()
   })
 
-  it('shows Account first only while signed in and removes it on sign-out', async ({ start }) => {
+  it.skipIf(!SHIPS_ACCOUNT)('shows Account first only while signed in and removes it on sign-out', async ({ start }) => {
     const c = await start()
     const { sections } = injectedOf(c).hooks
     await c.mock.streams.opened('account/watch', 1)
