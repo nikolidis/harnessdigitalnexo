@@ -1154,7 +1154,7 @@ export const ja = {
   'queue.remove': 'キュー済みメッセージを削除',
   'queue.steer': 'キュー内のメッセージを実行中の指示に追加',
   'queue.steer.unavailable': '指示の変更はエージェントの実行中のみ利用できます',
-  'error.sessionInUse': 'このセッションはすでに使用中です。別の実行中のDSHインスタンス（dsh webやデスクトップアプリなど）が使用している可能性があります。他のDSHインスタンスを終了して再試行してください。',
+  'error.sessionInUse': 'このセッションはすでに使用中です。別の実行中のDigital Nexoインスタンス（dsh webやデスクトップアプリなど）が使用している可能性があります。他のDigital Nexoインスタンスを終了して再試行してください。',
   'queue.editFailed': '編集に失敗しました。このメッセージはすでに送信が開始されている可能性があります。',
   'queue.removeFailed': '削除に失敗しました。このメッセージはすでに送信が開始されている可能性があります。',
   'queue.steerFailed': '指示の変更に失敗しました。再試行してください。',

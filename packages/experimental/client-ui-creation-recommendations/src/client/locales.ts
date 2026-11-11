@@ -105,7 +105,7 @@ export const ja: Record<RecommendationKey, string> = {
   interrupted: '作成が中断されました。再試行してください。',
   unconfirmed: '結果を確認できません。再試行して確認してください。',
   'invalid-location': '場所を選択するか、1,000文字以内で説明してください。',
-  'restart-required': '変更は保存されました。適用するにはDSHを再起動してください。',
+  'restart-required': '変更は保存されました。適用するにはDigital Nexoを再起動してください。',
   overridden: '別の設定がこの変更を上書きしています。', cancelled: 'キャンセル済み',
   applicationFailed: '前回の変更は適用されませんでした。プラグイン画面で確認してください。',
   applicationCancelled: '前回の変更はキャンセルされました。',

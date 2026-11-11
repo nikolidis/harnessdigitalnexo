@@ -92,7 +92,7 @@ export const ja = {
   'error.invalid': 'アドレスが無効か、長すぎます。',
   'error.protocol': 'サポートされるのはHTTPとHTTPSのアドレスのみです。ローカルファイルにはドキュメントプレビューを使用してください。',
   'error.credentials': 'アドレスにユーザー名やパスワードを含めることはできません。',
-  'error.application-origin': '埋め込みブラウザはDSHアプリ自体を開けません。',
+  'error.application-origin': '埋め込みブラウザはDigital Nexoアプリ自体を開けません。',
   'load.failed': 'ページを読み込めませんでした。再読み込みするか、システムブラウザで開いてください。',
   'load.failed.detail': 'ページの読み込みに失敗しました（{code}）: {description}',
   'address.unknown': 'ページが遷移しました。このキャリアは新しいURLを読み取れません。',

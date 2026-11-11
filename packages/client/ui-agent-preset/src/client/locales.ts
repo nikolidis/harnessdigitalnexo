@@ -58,7 +58,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
     'The agent uses a terminal and image reading, with context compaction. Useful for testing and comparing its basic performance.',
   presetCordisName: 'Creator mode',
   presetCordisDescription:
-    'Customize DSH through conversation. Let the agent write plugins that add features or UI, or combine tools and prompts to create your own mode.',
+    'Customize Digital Nexo through conversation. Let the agent write plugins that add features or UI, or combine tools and prompts to create your own mode.',
 
   inUse: 'New task default',
 
@@ -183,7 +183,7 @@ export const es = {
     'El agente utiliza un terminal y lectura de imágenes, con compactación de contexto. Útil para probar y comparar su rendimiento básico.',
   presetCordisName: 'Modo creador',
   presetCordisDescription:
-    'Personaliza DSH a través de la conversación. Deje que el agente escriba complementos que agreguen funciones o interfaz de usuario, o combine herramientas e indicaciones para crear su propio modo.',
+    'Personaliza Digital Nexo a través de la conversación. Deje que el agente escriba complementos que agreguen funciones o interfaz de usuario, o combine herramientas e indicaciones para crear su propio modo.',
 
   inUse: 'Nueva tarea predeterminada',
 
@@ -228,7 +228,7 @@ export const fr = {
     "L'agent utilise un terminal et une lecture d'image, avec compactage du contexte. Utile pour tester et comparer ses performances de base.",
   presetCordisName: 'Mode Créateur',
   presetCordisDescription:
-    "Personnalisez DSH via la conversation. Laissez l'agent écrire des plugins qui ajoutent des fonctionnalités ou une interface utilisateur, ou combinez des outils et des invites pour créer votre propre mode.",
+    "Personnalisez Digital Nexo via la conversation. Laissez l'agent écrire des plugins qui ajoutent des fonctionnalités ou une interface utilisateur, ou combinez des outils et des invites pour créer votre propre mode.",
 
   inUse: 'Nouvelle tâche par défaut',
 
@@ -273,7 +273,7 @@ export const de = {
     'Der Agent verwendet ein Terminal und das Lesen von Bildern mit Kontextkomprimierung. Nützlich zum Testen und Vergleichen der Grundleistung.',
   presetCordisName: 'Erstellermodus',
   presetCordisDescription:
-    'Passen Sie DSH durch Gespräche an. Lassen Sie den Agenten Plugins schreiben, die Funktionen oder Benutzeroberflächen hinzufügen, oder kombinieren Sie Tools und Eingabeaufforderungen, um Ihren eigenen Modus zu erstellen.',
+    'Passen Sie Digital Nexo durch Gespräche an. Lassen Sie den Agenten Plugins schreiben, die Funktionen oder Benutzeroberflächen hinzufügen, oder kombinieren Sie Tools und Eingabeaufforderungen, um Ihren eigenen Modus zu erstellen.',
 
   inUse: 'Neuer Aufgabenstandard',
 
@@ -318,7 +318,7 @@ export const ru = {
     'Агент использует терминал и чтение изображений со сжатием контекста. Полезно для тестирования и сравнения его базовой производительности.',
   presetCordisName: 'Режим автора',
   presetCordisDescription:
-    'Настройте DSH через разговор. Позвольте агенту писать плагины, которые добавляют функции или пользовательский интерфейс, или комбинируйте инструменты и подсказки для создания собственного режима.',
+    'Настройте Digital Nexo через разговор. Позвольте агенту писать плагины, которые добавляют функции или пользовательский интерфейс, или комбинируйте инструменты и подсказки для создания собственного режима.',
 
   inUse: 'Новая задача по умолчанию',
 
@@ -363,7 +363,7 @@ export const pt = {
     'O agente utiliza terminal e leitura de imagens, com compactação de contexto. Útil para testar e comparar seu desempenho básico.',
   presetCordisName: 'Modo criador',
   presetCordisDescription:
-    'Personalize DSH por meio de conversa. Deixe o agente escrever plug-ins que adicionem recursos ou UI, ou combine ferramentas e prompts para criar seu próprio modo.',
+    'Personalize Digital Nexo por meio de conversa. Deixe o agente escrever plug-ins que adicionem recursos ou UI, ou combine ferramentas e prompts para criar seu próprio modo.',
 
   inUse: 'Novo padrão de tarefa',
 
