@@ -71,11 +71,8 @@ jobs:
           Get-ChildItem $salida | Format-Table Name, @{n='MiB';e={[math]::Round($_.Length/1MB,1)}}
           $exe = Get-ChildItem $salida -Filter 'digitalnexo-*-win-x64.exe' | Select-Object -First 1
           if (-not $exe) { throw 'el empaquetado no dejó ningún instalador .exe' }
-          foreach ($paquete in 'dsh-web-search-exa', 'dsh-web-search-perplexity') {
-            $encontrado = Get-ChildItem (Join-Path $salida 'win-unpacked') -Recurse -Filter package.json -ErrorAction SilentlyContinue |
-              Where-Object { $_.Directory.Name -eq $paquete } | Select-Object -First 1
-            if (-not $encontrado) { throw "la aplicación empaquetada no lleva $paquete" }
-          }
+          node digitalnexo/tools/check-desktop-package.mjs (Join-Path $salida 'win-unpacked\resources')
+          if ($LASTEXITCODE -ne 0) { throw 'a la aplicación empaquetada le faltan paquetes de Digital Nexo' }
           "ruta=$($exe.FullName)" >> $env:GITHUB_OUTPUT
       - name: Instalar en silencio
         run: |
@@ -155,9 +152,7 @@ jobs:
           appimage=$(ls "$salida"/digitalnexo-*-linux-x86_64.AppImage | head -n 1)
           deb=$(ls "$salida"/digitalnexo-*-linux-amd64.deb | head -n 1)
           test -f "$appimage" && test -f "$deb"
-          for paquete in dsh-web-search-exa dsh-web-search-perplexity; do
-            find "$salida/linux-unpacked" -path "*/$paquete/package.json" -print -quit | grep -q . || { echo "la aplicación empaquetada no lleva $paquete"; exit 1; }
-          done
+          node digitalnexo/tools/check-desktop-package.mjs "$salida/linux-unpacked/resources"
           echo "salida=$PWD/$salida" >> "$GITHUB_OUTPUT"
           echo "appimage=$PWD/$appimage" >> "$GITHUB_OUTPUT"
           echo "deb=$PWD/$deb" >> "$GITHUB_OUTPUT"
