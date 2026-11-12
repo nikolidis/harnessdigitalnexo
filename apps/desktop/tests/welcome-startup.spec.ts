@@ -160,6 +160,10 @@ vi.mock('../src/update-coordinator.ts', () => ({ DesktopUpdateCoordinator: class
   check = vi.fn(async () => this.state)
   dispose = vi.fn()
 } }))
+// Digital Nexo ships without the native account welcome. The first test exercises the original shell's
+// flow; the last one covers the shipped distribution.
+const distribution = vi.hoisted(() => ({ productName: 'Digital Nexo', accountSignIn: true, updates: true }))
+vi.mock('../src/distribution.ts', () => ({ DESKTOP_DISTRIBUTION: distribution }))
 vi.mock('../src/welcome-window.ts', () => ({
   openWelcomeWindow: async (locale: DesktopLocale, operations: WelcomeOperations) => {
     state.welcomeLocale = locale
@@ -171,6 +175,7 @@ vi.mock('../src/welcome-window.ts', () => ({
 }))
 
 afterEach(() => {
+  Object.assign(distribution, { accountSignIn: true, updates: true })
   vi.clearAllTimers()
   vi.useRealTimers()
   vi.unstubAllEnvs()
@@ -309,4 +314,34 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   expect(state.showWorkspace).toHaveBeenCalledOnce()
   expect(state.focusWorkspace).toHaveBeenCalledOnce()
 
+})
+
+it('opens the Digital Nexo workspace without the native welcome or the DeepSeek account', async () => {
+  Object.assign(distribution, { accountSignIn: false, updates: false })
+  vi.resetModules()
+  vi.clearAllMocks()
+  state.preference = 'es'
+  state.hasApiKey = false
+  state.operations = undefined
+  state.accountListener = undefined
+  state.accountState.mockResolvedValue({ status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' } })
+  vi.useFakeTimers()
+  vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3')
+  vi.stubEnv('DSH_DESKTOP_DEV_PROJECT_DIR', '/development-profile')
+  vi.stubEnv('DSH_DESKTOP_NODE_BINARY', '/runtime/node')
+  vi.stubEnv('DSH_DESKTOP_PNPM_ENTRY', '/runtime/pnpm')
+  vi.stubEnv('DSH_DESKTOP_DSH_DIR', '/runtime/dsh')
+  vi.stubEnv('DSH_DESKTOP_PRIMARY_RUNTIME_DIR', '/runtime/primary-runtime')
+  vi.stubEnv('DSH_DESKTOP_HOST_INSPECT_PORT', undefined)
+  vi.stubEnv('DSH_DESKTOP_OPEN_DEVTOOLS', '0')
+  vi.stubEnv('DSH_DESKTOP_MANDATORY_UPDATE_CONFIG', undefined)
+  vi.stubEnv('DSH_DESKTOP_UPDATE_JOURNAL_DIR', undefined)
+  await import('../src/main.ts')
+  await vi.waitFor(() => { expect(state.showWorkspace).toHaveBeenCalledOnce() })
+  expect(state.loadWorkspace).toHaveBeenCalledExactlyOnceWith('dsh-app://app/')
+  await vi.advanceTimersByTimeAsync(0)
+  expect(state.beforeWelcome).not.toHaveBeenCalled()
+  expect(state.operations).toBeUndefined()
+  expect(state.accountListener).toBeUndefined()
+  expect(state.quit).not.toHaveBeenCalled()
 })

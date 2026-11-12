@@ -9,7 +9,8 @@ Procedimiento probado: es el que llevó esta distribución de `dsh-v0.2.2-rc.1` 
    finales (sin sufijo). Las `-alpha` y `-beta` y la rama `master` no se siguen: entre
    dos `rc` hay más de mil commits de trabajo sin publicar.
 2. **`main` solo avanza si todo está en verde**: fusión resuelta, compilación,
-   `check-composition`, `smoke`, y ninguna prueba que falle aquí y no en el original.
+   `check-composition`, `smoke`, ninguna prueba que falle aquí y no en el original, y
+   el flujo `Escritorio` de GitHub en verde sobre la rama de trabajo (paso 8).
    Si algo falla, el trabajo se sube a la rama `actualizacion/<etiqueta>` con un
    `digitalnexo/PENDIENTE.md` que diga qué falló, y `main` se queda como estaba.
 3. **Lo que el original quita y sirve sin DeepSeek, se conserva.** Si una versión
@@ -22,7 +23,8 @@ Procedimiento probado: es el que llevó esta distribución de `dsh-v0.2.2-rc.1` 
    (`packages/llm/llm-pi-ai`) o la instalación de plugins; o hace obligatorio un
    servicio de DeepSeek (cuenta, telemetría) que la capa `digitalnexo.patch.yml` ya
    no pueda desactivar.
-5. **No se reescribe historia** ni se fuerza ningún `push`. No se suben etiquetas.
+5. **No se reescribe historia** ni se fuerza ningún `push`. No se suben etiquetas (las
+   `escritorio-v*` las crea en GitHub el flujo `Escritorio` al publicar).
 6. **Ante la duda, rama y aviso.** Un conflicto que esta página no cubre y cuya
    resolución no sea evidente no se adivina sobre `main`.
 
@@ -34,6 +36,8 @@ Procedimiento probado: es el que llevó esta distribución de `dsh-v0.2.2-rc.1` 
   `git merge <etiqueta>`.
 - Rama `main`: `upstream` más los cambios de Digital Nexo. La lista exacta de
   ficheros del original que Digital Nexo modifica es `git diff --stat upstream main`.
+  Su único flujo de GitHub, `.github/workflows/escritorio.yml`, es propio: la fusión
+  no lo toca porque `upstream` no lleva flujos.
 
 ## Entorno
 
@@ -120,6 +124,13 @@ Cómo resolver cada conflicto:
 | `packages/client/ui-settings-models/src/onboarding-copy.ts` | Lo del original; si el original cambió su versión del aviso, subir también la de Digital Nexo (`AAAA-MM-DD.digitalnexo.N`) para que el aviso vuelva a mostrarse |
 | `apps/web/index.html`, `apps/web/vite.config.ts`, `apps/web/public/*` | Lo del original, con el título `Digital Nexo` y los iconos de Digital Nexo |
 | Instantáneas `*.snap` | Lo del original y regenerar con `vitest run <prueba> -u`; en el `git diff` solo debe cambiar el nombre del producto |
+| `apps/desktop/src/main.ts`, `welcome-backend.ts`, `preload-app.ts`, `ipc.ts` y `packages/client/ui-settings-models/src/client/index.ts` | Lo del original y volver a poner encima las condiciones de `DESKTOP_DISTRIBUTION` (`git diff upstream~1 main -- <fichero>`). Un sitio nuevo del original que abra la bienvenida, vigile la cuenta o busque actualizaciones lleva la misma condición |
+| `apps/desktop/scripts/*` (`electron-builder-config.mjs`, `package-target.ts`, `desktop-package-environment.mjs`, `desktop-build-paths.*`, `prepare-*.ts`, `smoke-packaged-runtime.ts`, `pack-local-packages.ts`, `retain-desktop-ci.ts`) y `apps/desktop/cli/dsh*` | Lo del original y volver a aplicar la identidad de Digital Nexo, el destino `linux-x64` (solo sin firmar) y el empaquetado local sin `.env` |
+| `apps/desktop/src/locale.ts`, `apps/desktop/installer/locales/*.json`, cabeceras `apps/desktop/installer/*.h` | Lo del original; el paso 5 vuelve a poner la marca |
+| `apps/desktop/resources/*`, `apps/desktop/installer/assets/*` | Los de Digital Nexo. Si el original cambia nombres o tamaños, regenerarlos con `node digitalnexo/brand/build-desktop-assets.mjs` |
+| `apps/desktop/tests/*.spec.ts` | Lo del original; el paso 5 cambia los textos. En `main-startup`, `welcome-startup` y `preload-app` volver a poner el simulacro de `distribution.ts` y las pruebas de la distribución de Digital Nexo (`git diff upstream~1 main -- <fichero>`) |
+| `apps/desktop/tests/expected/*` | Lo del original y regenerar con `vitest run <prueba> -u`; en el `git diff` solo debe cambiar el nombre del producto |
+| `apps/desktop-host/package.json` | Lo del original, más las dependencias de Exa y Perplexity |
 | `pnpm-lock.yaml` | Lo del original; el paso 6 lo regenera |
 | `.github/dependabot.yml` | Sigue borrado |
 
@@ -131,9 +142,11 @@ aplicar encima el cambio de Digital Nexo, que es lo que enseña
 
 | Paquete | Eliminado en | Registros que necesita |
 |---|---|---|
-| `packages/web/web-search-exa`, `packages/web/web-search-perplexity` | `dsh-v0.2.2-rc.2` | `paths` en `tsconfig.base.json`, `references` en `tsconfig.host.json`, `scripts/product-package-policy.ts`, y `scripts/verify-package-readme-model-experience.ts` (solo Exa) |
+| `packages/web/web-search-exa`, `packages/web/web-search-perplexity` | `dsh-v0.2.2-rc.2` | `paths` en `tsconfig.base.json`, `references` en `tsconfig.host.json`, `scripts/product-package-policy.ts`, `scripts/verify-package-readme-model-experience.ts` (solo Exa) y las dependencias de `apps/desktop-host/package.json` (para que vayan dentro de la aplicación de escritorio) |
 
-En cada actualización: poner su `version` igual a la del resto de paquetes y
+En cada actualización: poner su `version` igual a la del resto de paquetes, y también la
+de `packages/client/ui-brand-digitalnexo` (el empaquetado del escritorio instala los
+paquetes desde sus tarballs y exige la misma versión que piden los demás), y
 comprobar que compilan y pasan sus pruebas
 (`node_modules/.bin/vitest run packages/web/web-search-exa packages/web/web-search-perplexity`).
 Si la interfaz `ctx.web.registerSearchProvider` cambia, se adaptan. `smoke.mjs`
@@ -186,7 +199,8 @@ sin buscador, que con Exa o Perplexity montados sí se ofrece, y que el perfil `
 sirve la página con el título y el icono de Digital Nexo.
 
 En cuanto esto pase, conviene confirmar y subir la rama de trabajo (paso 8, sin tocar
-`main`) para no perder lo hecho si el resto se interrumpe.
+`main`) para no perder lo hecho si el resto se interrumpe. Subirla pone además en
+marcha el flujo `Escritorio` en GitHub (unos 20 minutos), que se revisa en el paso 8.
 
 ### 7. Pruebas, comparadas con el original
 
@@ -242,12 +256,30 @@ git add -A && git commit --no-verify    # mensaje en español: versión, qué tr
 git worktree remove --force /tmp/original
 ```
 
+Subida la rama, esperar al flujo `Escritorio` de su último commit (empaqueta Windows y
+Linux, los instala, recorre la interfaz y los desinstala):
+
+```sh
+gh api "repos/nikolidis/harnessdigitalnexo/actions/runs?branch=actualizacion/<nueva>&per_page=1" \
+  --jq '.workflow_runs[0] | [.id, .head_sha, .status, .conclusion] | @tsv'
+gh api repos/nikolidis/harnessdigitalnexo/actions/runs/<id>/jobs --jq '.jobs[] | [.id, .name, .conclusion] | @tsv'
+gh api repos/nikolidis/harnessdigitalnexo/actions/jobs/<id>/logs > /tmp/trabajo.log    # si un trabajo falla
+```
+
+Los registros se leen así; los artefactos (capturas, instaladores) no siempre se pueden
+descargar desde fuera de GitHub. Un fallo del escritorio es rojo como cualquier otro:
+se arregla en la rama o se deja en `PENDIENTE.md`.
+
 Todo en verde:
 
 ```sh
 git checkout -B main origin/main && git merge --ff-only actualizacion/<nueva>
 git push --no-verify origin upstream main
 ```
+
+Al llegar a `main`, el mismo flujo vuelve a empaquetar y probar, y publica los
+instaladores en la versión `escritorio-v<versión>`. Se comprueba que terminó en verde
+y que la versión publicada existe (`gh release view escritorio-v<versión> --repo nikolidis/harnessdigitalnexo`).
 
 Algo en rojo: escribir `digitalnexo/PENDIENTE.md` en la rama (qué falló, con qué
 salida, qué se intentó), confirmarlo, `git push --no-verify origin upstream actualizacion/<nueva>`
@@ -261,4 +293,5 @@ entera; las comprobaciones ya se han hecho en los pasos 6 y 7.
 En español y corto: de qué versión a cuál; qué trae de nuevo para quien la usa (de
 las guías de `docs/upgrade-guide` y de las filas nuevas que lista `check-composition`);
 qué quitaba el original y qué se hizo con ello; qué hubo que adaptar; el resultado de
-cada comprobación con sus números; y lo que no se pudo comprobar.
+cada comprobación con sus números, incluido el flujo `Escritorio` y el enlace a los
+instaladores publicados; y lo que no se pudo comprobar.

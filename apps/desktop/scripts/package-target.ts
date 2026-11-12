@@ -63,7 +63,7 @@ export interface DesktopPackageTarget {
 }
 
 /** A target with a signed release channel: every target except the unsigned-only Linux packages. */
-type DesktopReleaseTarget = DesktopPackageTarget & { readonly name: DesktopPackageTargetName, readonly platform: 'darwin' | 'win32' }
+type DesktopReleaseTarget = DesktopPackageTarget & { readonly name: DesktopPackageTargetName; readonly platform: 'darwin' | 'win32' }
 
 function releaseTarget(target: DesktopPackageTarget): DesktopReleaseTarget {
   if (!isReleaseTarget(target)) throw new Error(`desktop package: ${target.name} has no signed release channel; package it with --unsigned`)

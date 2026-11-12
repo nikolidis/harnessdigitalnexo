@@ -102,6 +102,16 @@ it.each(['missing manifest', 'dangling symlink', 'absent'] as const)(
   },
 )
 
+it('treats an entry missing from an Electron ASAR archive as absent, so the WASM engine stays available', () => {
+  const fixture = engineTree()
+  // Electron's ASAR file system answers a missing archive entry with null instead of undefined.
+  vi.mocked(lstatSync).mockReturnValue(null as never)
+  const error = thrownBy(() => fixture.resolveEnginePackage(fixture.name))
+  expect(error).toMatchObject({ code: 'MODULE_NOT_FOUND' })
+  expect(error).toBe(fixture.resolve.mock.results[0]?.value)
+  expect(lstatSync).toHaveBeenCalled()
+})
+
 it('keeps a Node resolution error other than MODULE_NOT_FOUND unchanged', () => {
   const fixture = engineTree()
   mkdirSync(fixture.directory, { recursive: true })

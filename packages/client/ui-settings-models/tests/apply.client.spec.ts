@@ -97,6 +97,25 @@ describe('ui-settings-models apply', () => {
     }
   })
 
+  it.each([
+    { desktop: {}, ids: ['deepseek-official'], automatic: false },
+    { desktop: { welcome: true }, ids: ['deepseek-official'], automatic: false },
+    { desktop: { welcome: false }, ids: ['welcome-notice', 'deepseek-official'], automatic: true },
+  ])('leaves first-run onboarding to a Desktop shell only when it has a native welcome ($desktop)', async ({ desktop, ids, automatic }) => {
+    const { ctx, slots } = await bench()
+    declare(slots)
+    try {
+      vi.stubGlobal('dshDesktop', desktop)
+      const plugin = ctx.plugin({ inject: [...inject], apply })
+      await plugin.await()
+      expect(slots.entries('settings.onboarding').map(entry => entry.options.id)).toEqual(ids)
+      const onboarding = slots.entries('settings.onboarding').find(entry => entry.options.id === 'deepseek-official')!
+      expect((onboarding.inject as () => { automatic: boolean })().automatic).toBe(automatic)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('defaults to browser onboarding and rejects malformed bootstrap options', async () => {
     expect(hostPlugin.Config({})).toEqual({ credentialOnboarding: true })
     expect(hostPlugin.Config['~standard'].validate({ credentialOnboarding: 'false' })).toHaveProperty('issues')

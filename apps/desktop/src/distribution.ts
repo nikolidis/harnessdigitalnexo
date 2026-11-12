@@ -6,11 +6,20 @@
  * first-run notice and model setup, as `dsh web` does. There is no update service: the shell neither
  * checks for updates nor offers to, and the Web client receives no update bridge.
  */
-export const DESKTOP_DISTRIBUTION = {
+
+/** Product choices the shell reads at run time; tests substitute the original release's choices. */
+export interface DesktopDistribution {
   /** Name shown in the About panel; menus, dialogs, and the tray take theirs from the locale dictionaries. */
-  productName: 'Digital Nexo',
+  readonly productName: string
   /** Whether the shell signs in to a DeepSeek account and gates the workspace behind the welcome window. */
-  accountSignIn: false,
+  readonly accountSignIn: boolean
   /** Whether the shell checks, downloads, and installs updates. */
+  readonly updates: boolean
+}
+
+/** The choices this build ships with. */
+export const DESKTOP_DISTRIBUTION: DesktopDistribution = {
+  productName: 'Digital Nexo',
+  accountSignIn: false,
   updates: false,
-} as const
+}

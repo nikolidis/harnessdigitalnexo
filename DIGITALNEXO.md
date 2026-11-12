@@ -11,7 +11,8 @@ del proyecto original, licencia MIT, sin tocar su arquitectura.
   pueden ejecutarse). Un commit por versión importada. Sirve para comparar y para
   actualizar.
 - **Rama `main`:** `upstream` más los cambios de esta página. Tampoco lleva
-  `.github/dependabot.yml`.
+  `.github/dependabot.yml`; su único flujo de GitHub es el propio,
+  `.github/workflows/escritorio.yml` (ver «Aplicación de escritorio»).
 
 DeepSeek Harness es marca registrada de DeepSeek. Esta distribución no la usa en su
 nombre ni se presenta como oficial: la nombra solo para decir sobre qué está
@@ -30,6 +31,70 @@ pnpm dsh web
 El comando imprime la dirección con su clave de acceso (`http://127.0.0.1:3080/?token=…`):
 ábrela tal cual, sin la clave la página no entra. La primera vez no hay ningún modelo configurado: entra
 en **Configuración → Modelos**, añade tu proveedor y su clave, y ya puedes trabajar.
+
+## Aplicación de escritorio (Windows y Linux)
+
+Los instaladores están en la [última versión publicada](https://github.com/nikolidis/harnessdigitalnexo/releases/latest):
+
+| Sistema | Fichero | Instalación |
+|---|---|---|
+| Windows 10 y 11 (64 bits) | `Digital-Nexo-Windows-x64-Setup.exe` | Abrirlo. No está firmado: SmartScreen avisa y hay que pulsar **Más información → Ejecutar de todas formas**. Se instala para el usuario, sin administrador, en `%LOCALAPPDATA%\Programs\Digital Nexo` |
+| Ubuntu, Debian y derivadas | `Digital-Nexo-Linux-amd64.deb` | `sudo apt install ./Digital-Nexo-Linux-amd64.deb`. Queda en el menú y como orden `digitalnexo` |
+| Otras distribuciones Linux | `Digital-Nexo-Linux-x86_64.AppImage` | `chmod +x` y abrirla. Necesita FUSE 2 (`libfuse2`) |
+
+Es la aplicación de escritorio del original (Electron con la interfaz web completa y su
+propio Node, Python y pnpm dentro) con estos cambios:
+
+- **Identidad propia** (`Digital Nexo`, `io.digitalnexo.desktop`, datos de Electron
+  aparte), así que se puede tener instalada junto a DeepSeek Harness. La carpeta de
+  datos `~/.dsh` (sesiones y perfiles) sí es la misma, igual que en el original entre
+  la orden `dsh` y el escritorio: no conviene abrir las dos aplicaciones a la vez.
+- **Sin cuenta de DeepSeek:** no abre la ventana de bienvenida de DeepSeek ni vigila la
+  cuenta; entra directamente en el espacio de trabajo con el aviso de primer arranque de
+  Digital Nexo, como la versión web.
+- **Sin actualizaciones automáticas:** el canal de actualización y la política de
+  actualización obligatoria eran servidores de DeepSeek. El menú no ofrece «Buscar
+  actualizaciones»; para actualizar se instala la versión nueva encima.
+- **Linux** es un destino nuevo: el original solo publica Windows y macOS. Para que
+  funcione lleva una corrección propia en `packages/document/office-kit/src/locate.ts`:
+  en Linux no hay motor nativo de LibreOffice y se usa el WASM, pero dentro del archivo
+  ASAR de Electron la comprobación de paquetes confundía «no existe» con «instalado a
+  medias» y no dejaba llegar a él (Electron devuelve `null` donde Node devuelve
+  `undefined`).
+- Exa y Perplexity van incluidos y se montan igual que en la versión web (ver
+  «Búsqueda web»).
+
+Los tres interruptores están en `apps/desktop/src/distribution.ts`; el nombre, los
+iconos, el instalador y los paquetes de Linux, en
+`apps/desktop/scripts/electron-builder-config.mjs`. Las imágenes salen de
+`digitalnexo/brand/build-desktop-assets.mjs`.
+
+### Cómo se construye y se prueba
+
+`.github/workflows/escritorio.yml` se ejecuta en GitHub con cada cambio en `main`,
+`escritorio` o `actualizacion/*`:
+
+- **Windows** (`windows-latest`): `pnpm run package:desktop:win:x64:unsigned`,
+  instalación silenciosa (`/S`), recorrido de la aplicación instalada, desinstalación
+  silenciosa y comprobación de que no queda en Programas instalados.
+- **Linux** (`ubuntu-24.04`): `pnpm run package:desktop:linux:x64:unsigned`, recorrido
+  de la carpeta sin instalar, del `.deb` instalado (con el aislamiento de Chromium
+  activo) y de la AppImage, y desinstalación del `.deb`.
+- El recorrido es `digitalnexo/tools/smoke-desktop.mjs`: arranca el ejecutable con el
+  servidor de modelo simulado como proveedor de terceros (sin claves) y comprueba el
+  título, el aviso de primer arranque, una conversación completa, los ajustes, los
+  complementos y las tareas, sin errores y sin conexiones fuera de la máquina, ni desde
+  la ventana ni desde ningún otro proceso de la aplicación. La única salida admitida es
+  la del corrector ortográfico de Electron, que descarga de Google el diccionario del
+  idioma de la interfaz (`*.gvt1.com/edgedl/chrome/dict/`), igual que el original; el
+  Host no puede abrir ninguna.
+- Desde `main`, si todo pasa, publica los tres paquetes y sus sumas SHA-256 en la
+  versión `escritorio-v<versión>` (`digitalnexo/tools/publish-desktop.mjs`) con nombres
+  fijos, para que los enlaces de `releases/latest/download/…` no cambien.
+
+En local se empaqueta con las mismas órdenes, sin ficheros `.env` de publicación: el
+`.exe` en Windows x64 (el instalador compila un ayudante con Visual C++) y los paquetes
+de Linux en Linux x64.
 
 ## Qué cambia respecto al original
 
@@ -96,7 +161,8 @@ Para tenerla, monta un buscador de terceros. Esta distribución conserva los dos
 original traía como opcionales hasta la `rc.1` y **eliminó en la `rc.2`**: Exa y
 Perplexity (`packages/web/web-search-exa`, `packages/web/web-search-perplexity`). Desde
 la `rc.2` los mantiene Digital Nexo, no DeepSeek. Añade a
-`$DSH_HOME/profiles/web/cordis.patch.yml` (por defecto `~/.dsh/profiles/web/`):
+`$DSH_HOME/profiles/web/cordis.patch.yml` (por defecto `~/.dsh/profiles/web/`; en la
+aplicación de escritorio, `~/.dsh/profiles/desktop/`):
 
 ```yaml
 - insert:
@@ -105,7 +171,8 @@ la `rc.2` los mantiene Digital Nexo, no DeepSeek. Añade a
 ```
 
 y arranca con `EXA_API_KEY` en el entorno (o `web-search-perplexity`,
-`@deepseek-ai/dsh-web-search-perplexity` y `PERPLEXITY_API_KEY`). Con un solo buscador
+`@deepseek-ai/dsh-web-search-perplexity` y `PERPLEXITY_API_KEY`); en el escritorio, como
+variable de entorno del usuario. Con un solo buscador
 montado se elige solo; con varios, se elige en **Complementos → Búsqueda y obtención
 web**, que lista los que haya montados. Cualquier otro buscador es un plugin que llame
 a `ctx.web.registerSearchProvider()`.
@@ -172,5 +239,6 @@ está en el repositorio**: es un apaño de entorno, no de producto.
 - La batería `pnpm run test:snapshot` (reproducción de sesiones grabadas) y las
   comprobaciones de documentación `pnpm run doc-sync` no se ejecutan en las
   actualizaciones.
-- La aplicación de escritorio no se ha compilado ni probado; solo la interfaz web y
-  el perfil sin interfaz.
+- La aplicación de escritorio se prueba en las máquinas de GitHub (Windows Server y
+  Ubuntu 24.04, sin pantalla real en Linux), no en un Windows 11 de escritorio, y
+  SmartScreen no entra en la prueba. No se compila para macOS.
