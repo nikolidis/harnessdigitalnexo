@@ -18,7 +18,27 @@ vi.mock('../src/preload-windows.ts', () => ({ syncWindowsAppearance: vi.fn() }))
 vi.mock('../src/preload-mandatory-overlay.ts', () => ({ installMandatoryUpdateOverlay: vi.fn() }))
 
 beforeEach(() => { vi.stubGlobal('process', { ...process, isMainFrame: true }) })
-afterEach(() => { document.body.replaceChildren(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.clearAllMocks(); vi.resetModules() })
+afterEach(() => { document.body.replaceChildren(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.clearAllMocks(); vi.doUnmock('../src/distribution.ts'); vi.resetModules() })
+
+/** Load the preload as a distribution that delivers updates and owns onboarding natively. */
+async function importUpdatingPreload(): Promise<void> {
+  vi.doMock('../src/distribution.ts', () => ({ DESKTOP_DISTRIBUTION: { productName: 'Digital Nexo', accountSignIn: true, updates: true } }))
+  await import('../src/preload-app.ts')
+}
+
+function updatesOf(api: DshDesktopProductApi): NonNullable<DshDesktopProductApi['updates']> {
+  if (api.updates === undefined) throw new Error('the product API has no update bridge')
+  return api.updates
+}
+
+it('gives product documents no update bridge and leaves first-run onboarding to the Web client', async () => {
+  vi.stubGlobal('location', new URL('dsh-app://app/index.html'))
+  await import('../src/preload-app.ts')
+  const api = electron.contextBridge.exposeInMainWorld.mock.calls.find(([name]) => name === 'dshDesktop')?.[1] as DshDesktopProductApi
+  expect(api).not.toHaveProperty('updates')
+  expect(api.welcome).toBe(false)
+  expect(electron.ipcRenderer.on.mock.calls.some(([channel]) => channel === DESKTOP_IPC.updatesPresentation)).toBe(false)
+})
 
 it('reads only native login API-key presence through the onboarding bridge', async () => {
   vi.stubGlobal('location', new URL('dsh-app://app/'))
@@ -53,16 +73,18 @@ it('routes original-file requests through the trusted application bridge', async
 
 it('limits product documents to update status and a native confirmation action', async () => {
   vi.stubGlobal('location', new URL('dsh-app://app/index.html'))
-  await import('../src/preload-app.ts')
+  await importUpdatingPreload()
   const api = electron.contextBridge.exposeInMainWorld.mock.calls.find(([name]) => name === 'dshDesktop')?.[1] as DshDesktopProductApi
-  await api.updates.status()
-  await api.updates.open()
+  const updates = updatesOf(api)
+  expect(api.welcome).toBe(true)
+  await updates.status()
+  await updates.open()
   expect(electron.ipcRenderer.invoke.mock.calls).toEqual([[DESKTOP_IPC.updatesStatus], [DESKTOP_IPC.updatesOpen]])
   expect(api).not.toHaveProperty('plugins')
   expect(api).not.toHaveProperty('backend')
-  expect(api.updates).not.toHaveProperty('install')
+  expect(updates).not.toHaveProperty('install')
   const listener = vi.fn()
-  const dispose = api.updates.subscribe(listener)
+  const dispose = updates.subscribe(listener)
   const handler = electron.ipcRenderer.on.mock.calls.find(([channel]) => channel === DESKTOP_IPC.updatesPresentation)?.[1] as
     (event: unknown, state: unknown) => void
   handler({}, { visible: false })
@@ -296,13 +318,14 @@ void imageProtocolBack
 
 it('exposes channel choices and scoped subscriptions without exposing updater objects', async () => {
   vi.stubGlobal('location', new URL('dsh-app://app/index.html'))
-  await import('../src/preload-app.ts')
+  await importUpdatingPreload()
   const api = electron.contextBridge.exposeInMainWorld.mock.calls.find(([name]) => name === 'dshDesktop')?.[1] as DshDesktopProductApi
-  await api.updates.channels.get()
-  await api.updates.channels.set('stable')
+  const updates = updatesOf(api)
+  await updates.channels.get()
+  await updates.channels.set('stable')
   expect(electron.ipcRenderer.invoke.mock.calls).toEqual([[DESKTOP_IPC.updatesChannelGet], [DESKTOP_IPC.updatesChannelSet, 'stable']])
   const listener = vi.fn()
-  const dispose = api.updates.channels.subscribe(listener)
+  const dispose = updates.channels.subscribe(listener)
   const handler = electron.ipcRenderer.on.mock.calls.find(([channel]) => channel === DESKTOP_IPC.updatesChannelChanged)?.[1] as
     (event: unknown, state: unknown) => void
   const state = { channel: 'stable', packagedChannel: 'nightly', changing: false }

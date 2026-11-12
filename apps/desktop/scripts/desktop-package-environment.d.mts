@@ -29,12 +29,12 @@ export function loadDesktopPackageEnvironment(
 /**
  * Validate the packaging mode before preparation without invoking a token or Apple's services.
  * @param environment Selected local defaults or file-owned release settings.
- * @param target Selected release target.
+ * @param target Selected packaging target; Digital Nexo packages `linux` only unsigned.
  * @param options Explicit packaging mode.
  * @returns Nothing.
  */
 export function validateDesktopPackageEnvironment(
   environment: NodeJS.ProcessEnv,
-  target: { platform: 'win32' | 'darwin', arch: string },
+  target: { platform: 'win32' | 'darwin' | 'linux', arch: string },
   options?: { unsigned?: boolean, prepareOnly?: boolean, skipNotarization?: boolean },
 ): void

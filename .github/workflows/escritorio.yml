@@ -1,11 +1,30 @@
-# Digital Nexo: compila la aplicación de escritorio en máquinas de GitHub.
-# Windows solo se puede empaquetar en Windows x64 (el instalador compila un ayudante Win32 con Visual C++).
+# Digital Nexo: empaqueta la aplicación de escritorio, la prueba instalada y publica los instaladores.
+#
+# - Windows x64 (instalador .exe) solo se puede empaquetar en Windows x64: el instalador compila un
+#   ayudante Win32 con Visual C++. Se instala en silencio, se recorre la interfaz y se desinstala.
+# - Linux x64 (AppImage y .deb) se empaqueta en Ubuntu. Se prueban la carpeta sin instalar, el .deb
+#   instalado con su aislamiento (sandbox) y la AppImage.
+# - Desde `main` (o a mano con `publicar`) los instaladores probados se publican en la versión
+#   (release) `escritorio-v<versión>` del repositorio, con nombres fijos para enlaces permanentes.
+# Las pruebas de interfaz usan el servidor de modelo simulado del repositorio: no hace falta ninguna clave.
 name: Escritorio
 
 on:
   push:
-    branches: [escritorio]
+    branches: [main, escritorio]
+    # Documentación y pruebas no cambian lo que se empaqueta.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'website/**'
+      - '**/tests/**'
+      - 'snapshots/**'
   workflow_dispatch:
+    inputs:
+      publicar:
+        description: Publicar los instaladores si las pruebas pasan
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -13,6 +32,10 @@ permissions:
 concurrency:
   group: escritorio-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  # Los pasos de empaquetado no miran la telemetría de pnpm ni piden confirmaciones.
+  CI: 'true'
 
 jobs:
   windows:
@@ -30,41 +53,166 @@ jobs:
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: '24'
-      - name: Herramientas disponibles
+      - name: Máquina
         run: |
           node -e "const os=require('node:os'); console.log(JSON.stringify({node:process.version,cpus:os.cpus().length,memGiB:(os.totalmem()/2**30).toFixed(1)}))"
-          pnpm --version; git --version; pwsh --version; tar --version | Select-Object -First 1; python --version
-          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\Include" | Select-Object -ExpandProperty Name
           Get-PSDrive -PSProvider FileSystem | Format-Table Name, @{n='LibreGB';e={[math]::Round($_.Free/1GB,1)}}
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
-      - name: Comprobar configuración y herramientas del empaquetado
-        working-directory: apps/desktop
-        run: |
-          @(
-            'DSH_DESKTOP_APP_ID=io.digitalnexo.desktop'
-            'DSH_DESKTOP_AUTO_UPDATE_ENV=production'
-            'DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN=https://updates.invalid'
-          ) | Set-Content -Encoding utf8 .env.windows
-          cd ../..
-          pnpm run package:desktop:win:x64:unsigned --check
-      - name: Empaquetar (prueba de viabilidad)
+      - name: Empaquetar
         run: pnpm run package:desktop:win:x64:unsigned
-      - name: Conservar registros
+      - name: Localizar el instalador
+        id: instalador
+        run: |
+          $salida = 'apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts'
+          Get-ChildItem $salida | Format-Table Name, @{n='MiB';e={[math]::Round($_.Length/1MB,1)}}
+          $exe = Get-ChildItem $salida -Filter 'digitalnexo-*-win-x64.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'el empaquetado no dejó ningún instalador .exe' }
+          "ruta=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+      - name: Instalar en silencio
+        run: |
+          $proceso = Start-Process -FilePath '${{ steps.instalador.outputs.ruta }}' -ArgumentList '/S' -Wait -PassThru
+          if ($proceso.ExitCode -ne 0) { throw "el instalador terminó con el código $($proceso.ExitCode)" }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Digital Nexo\Digital Nexo.exe'
+          if (-not (Test-Path $app)) {
+            Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Depth 1 | Out-Host
+            throw "no se instaló $app"
+          }
+          Get-ChildItem (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs') -Filter '*.lnk' | Select-Object -ExpandProperty Name
+          Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' |
+            Where-Object DisplayName -like '*Digital Nexo*' |
+            Format-List DisplayName, DisplayVersion, Publisher, InstallLocation
+      - name: Probar la aplicación instalada
+        run: node digitalnexo/tools/smoke-desktop.mjs (Join-Path $env:LOCALAPPDATA 'Programs\Digital Nexo\Digital Nexo.exe') --out prueba/windows
+      - name: Desinstalar en silencio
+        if: always() && steps.instalador.outcome == 'success'
+        run: |
+          $carpeta = Join-Path $env:LOCALAPPDATA 'Programs\Digital Nexo'
+          $desinstalador = Get-ChildItem $carpeta -Filter 'Uninstall*.exe' | Select-Object -First 1
+          if (-not $desinstalador) { throw "no hay desinstalador en $carpeta" }
+          Start-Process -FilePath $desinstalador.FullName -ArgumentList '/S' -Wait
+          for ($i = 0; $i -lt 90 -and (Test-Path (Join-Path $carpeta 'Digital Nexo.exe')); $i++) { Start-Sleep -Seconds 2 }
+          if (Test-Path (Join-Path $carpeta 'Digital Nexo.exe')) { throw 'la desinstalación no quitó la aplicación' }
+          $restos = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object DisplayName -like '*Digital Nexo*'
+          if ($restos) { throw 'la desinstalación dejó la entrada de Programas instalados' }
+          'Desinstalada sin restos en Programas instalados.'
+      - name: Conservar registros y capturas
         if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: windows-registros-${{ github.run_id }}
+          name: windows-pruebas
           path: |
             apps/desktop/.desktop-build/packaging-runs/**
+            prueba/**
           if-no-files-found: warn
-          retention-days: 5
-      - name: Conservar instalador
-        if: success()
+          retention-days: 7
+      - name: Conservar el instalador
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: windows-instalador-${{ github.run_id }}
-          path: apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/*.exe
+          name: windows-instalador
+          path: ${{ steps.instalador.outputs.ruta }}
           compression-level: 0
-          retention-days: 3
+          retention-days: 7
+
+  linux:
+    name: Linux x64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - name: Liberar espacio en disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h / /mnt
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v5.0.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+      - name: Paquetes del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libfuse2t64
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+      - name: Empaquetar
+        run: pnpm run package:desktop:linux:x64:unsigned
+      - name: Localizar los paquetes
+        id: paquetes
+        run: |
+          salida=apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts
+          ls -la "$salida"
+          appimage=$(ls "$salida"/digitalnexo-*-linux-x86_64.AppImage | head -n 1)
+          deb=$(ls "$salida"/digitalnexo-*-linux-amd64.deb | head -n 1)
+          test -f "$appimage" && test -f "$deb"
+          echo "salida=$PWD/$salida" >> "$GITHUB_OUTPUT"
+          echo "appimage=$PWD/$appimage" >> "$GITHUB_OUTPUT"
+          echo "deb=$PWD/$deb" >> "$GITHUB_OUTPUT"
+          dpkg-deb --info "$deb"
+      - name: Probar la carpeta sin instalar
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' node digitalnexo/tools/smoke-desktop.mjs '${{ steps.paquetes.outputs.salida }}/linux-unpacked/digitalnexo' --no-sandbox --out prueba/linux-carpeta
+      - name: Instalar el .deb
+        run: |
+          sudo apt-get install -y '${{ steps.paquetes.outputs.deb }}'
+          ls -la '/opt/Digital Nexo/digitalnexo' '/opt/Digital Nexo/chrome-sandbox' /usr/bin/digitalnexo
+          ls /etc/apparmor.d/ | grep -i digitalnexo || echo 'sin perfil de AppArmor'
+          grep -E '^(Name|Exec|Icon|StartupWMClass)=' /usr/share/applications/*.desktop | grep -i -E 'nexo|digitalnexo' || true
+      - name: Probar el .deb instalado (con aislamiento)
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' node digitalnexo/tools/smoke-desktop.mjs /usr/bin/digitalnexo --out prueba/linux-deb
+      - name: Probar la AppImage
+        run: |
+          chmod +x '${{ steps.paquetes.outputs.appimage }}'
+          xvfb-run -a -s '-screen 0 1920x1080x24' node digitalnexo/tools/smoke-desktop.mjs '${{ steps.paquetes.outputs.appimage }}' --no-sandbox --out prueba/linux-appimage
+      - name: AppImage sin --no-sandbox (solo informativo)
+        continue-on-error: true
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' node digitalnexo/tools/smoke-desktop.mjs '${{ steps.paquetes.outputs.appimage }}' --out prueba/linux-appimage-aislada
+      - name: Desinstalar el .deb
+        run: |
+          sudo apt-get remove -y "$(dpkg-deb -f '${{ steps.paquetes.outputs.deb }}' Package)"
+          test ! -e '/opt/Digital Nexo/digitalnexo'
+          echo 'Desinstalado.'
+      - name: Conservar registros y capturas
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: linux-pruebas
+          path: |
+            apps/desktop/.desktop-build/packaging-runs/**
+            prueba/**
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Conservar los paquetes
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: linux-paquetes
+          path: |
+            ${{ steps.paquetes.outputs.appimage }}
+            ${{ steps.paquetes.outputs.deb }}
+          compression-level: 0
+          retention-days: 7
+
+  publicar:
+    name: Publicar instaladores
+    needs: [windows, linux]
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publicar)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: windows-instalador
+          path: descargas
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: linux-paquetes
+          path: descargas
+      - name: Publicar la versión
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node digitalnexo/tools/publish-desktop.mjs descargas

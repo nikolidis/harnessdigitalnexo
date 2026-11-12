@@ -1,7 +1,7 @@
 {
   "name": "@digitalnexo/dsh-client-ui-brand",
   "description": "Digital Nexo brand occupants for the Web client's sidebar and start-screen slots",
-  "version": "0.2.2-rc.1",
+  "version": "0.2.2-rc.2",
   "private": true,
   "type": "module",
   "main": "lib/index.js",

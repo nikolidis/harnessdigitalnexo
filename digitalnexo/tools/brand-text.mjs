@@ -3,7 +3,9 @@
 //
 // Es idempotente: se ejecuta despues de cada fusion con el proyecto original para
 // cubrir los textos nuevos que traiga. Solo toca el VALOR de las entradas de los
-// ficheros `locales.ts`; nunca nombres de paquete (`@deepseek-ai/...`), el comando
+// ficheros `locales.ts` de la interfaz web, del diccionario de la aplicacion de
+// escritorio (`apps/desktop/src/locale.ts`) y de los textos del instalador de Windows
+// (`apps/desktop/installer/locales/*.json`); nunca nombres de paquete (`@deepseek-ai/...`), el comando
 // `dsh`, extensiones ni identificadores. Las lineas que atribuyen el origen
 // ("construido sobre DeepSeek Harness") se conservan, y los textos de la cuenta de
 // DeepSeek (`ui-settings-account`, desactivada en Digital Nexo) se dejan como estan.
@@ -24,7 +26,7 @@ const WELCOME_FILE = 'packages/client/ui-settings-models/src/client/locales.ts'
 // Atribucion deliberada al proyecto original, en los ocho idiomas.
 const KEEP = /built on|基于开源项目|を基盤|construido sobre|repose sur|basiert auf|построен на основе|é construído sobre/
 // Limites en ASCII a proposito: en japones y chino el nombre va pegado a las letras vecinas.
-const COMPOUND = /(?<![A-Za-z0-9_@/.-])DSH-(?=[A-Za-zÄÖÜäöüß])/g
+const COMPOUND = /(?<![A-Za-z0-9_@/.-])(?:DSH|DeepSeek Harness)-(?=[A-Za-zÄÖÜäöüß])/g
 const TOKEN = /(?<![A-Za-z0-9_@/.-])(DeepSeek Harness|DSH)(?![A-Za-z0-9_]|\.[A-Za-z0-9_]|-[A-Za-z]*[a-z])/g
 const KEYED = /^(\s*(?:'[^']*'|"[^"]*"|[\w$]+)\s*:\s*)(.*)$/
 const CONTINUATION = /^(\s*)(['"`].*)$/
@@ -50,9 +52,16 @@ function quote(text) {
   return mark + text.replaceAll('\\', '\\\\').replaceAll(mark, `\\${mark}`).replaceAll('\n', '\\n') + mark
 }
 
+// Diccionarios fuera de `packages/` con el mismo formato `clave: valor`.
+const DESKTOP_DICTIONARIES = [
+  join(root, 'apps', 'desktop', 'src', 'locale.ts'),
+  ...readdirSync(join(root, 'apps', 'desktop', 'installer', 'locales')).filter((name) => name.endsWith('.json'))
+    .sort().map((name) => join(root, 'apps', 'desktop', 'installer', 'locales', name)),
+]
+
 let total = 0
 const touched = []
-for (const path of localeFiles(join(root, 'packages'))) {
+for (const path of [...localeFiles(join(root, 'packages')), ...DESKTOP_DICTIONARIES]) {
   const rel = relative(root, path).split(sep).join('/')
   if (SKIP_PACKAGES.some((prefix) => rel.startsWith(prefix))) continue
   const before = readFileSync(path, 'utf8')
@@ -91,6 +100,10 @@ const LITERALS = [
   ['packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx', /DSH Local Build/g, PRODUCT],
   ['packages/experimental/liveshare/tests/viewer-brand.client.spec.tsx', /DSH (\d)/g, `${PRODUCT} $1`],
   ['packages/experimental/client-ui-voice-input/tests/preparation.client.spec.tsx', /运行 DSH 的机器/g, `运行 ${PRODUCT} 的机器`],
+  // Titulos de las ventanas nativas del instalador de Windows (C++ compilado al empaquetar).
+  ['apps/desktop/installer/restart-banner.h', /L"DeepSeek Harness"/g, `L"${PRODUCT}"`],
+  ['apps/desktop/installer/restart-status.h', /L"DeepSeek Harness"/g, `L"${PRODUCT}"`],
+  ['apps/desktop/installer/extract-report.h', /L"DeepSeek Harness installer/g, `L"${PRODUCT} installer`],
 ]
 for (const [target, pattern, replacement] of LITERALS) {
   const full = join(root, target)

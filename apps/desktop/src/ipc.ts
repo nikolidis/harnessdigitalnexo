@@ -102,7 +102,13 @@ export interface DshDesktopProductApi {
    * @returns `name=value` fields separated by `; `, with no hostname, user name, or serial number.
    */
   deviceInfo(): Promise<string>
-  readonly updates: {
+  /**
+   * Whether the shell's native welcome window owns first-run onboarding; `false` leaves the Web first-run
+   * notice and model setup to the Web client. Absent means true.
+   */
+  readonly welcome?: boolean
+  /** Update status and channel selection; absent when the shell delivers no updates. */
+  readonly updates?: {
     readonly channels: DesktopChannelBridge
     status(): Promise<DesktopUpdatePresentation>
     open(): Promise<void>

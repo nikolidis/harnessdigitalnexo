@@ -19,6 +19,7 @@ node gen.mjs                 # rewrites logo.json
 # 2. Rebuild artwork.ts, the favicons, and the app icons from logo.json.
 cd ../..
 node digitalnexo/brand/build-assets.mjs
+node digitalnexo/brand/build-desktop-assets.mjs
 pnpm run build
 ```
 
@@ -31,5 +32,6 @@ pnpm run build
 | `gen.mjs` | Inter ExtraBold → outlines for the wordmark and the "D." monogram (`logo.json`) |
 | `logo.json` | The outlines, with the font version they came from |
 | `build-assets.mjs` | `logo.json` → `artwork.ts`, `favicon*.svg`, `icon-*.png`, `apple-touch-icon.png` |
+| `build-desktop-assets.mjs` | `logo.json` → desktop application icons (`apps/desktop/resources/icon*.{svg,png}`, `tray-windows.ico`) and Windows installer artwork (`apps/desktop/installer/assets/*.png`) |
 
 Colours used by the icons are constants at the top of `build-assets.mjs`; colours used inside the application are in `packages/client/ui-brand-digitalnexo/src/client/Brand.module.css`.
