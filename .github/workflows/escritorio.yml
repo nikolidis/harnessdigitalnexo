@@ -1,0 +1,70 @@
+# Digital Nexo: compila la aplicación de escritorio en máquinas de GitHub.
+# Windows solo se puede empaquetar en Windows x64 (el instalador compila un ayudante Win32 con Visual C++).
+name: Escritorio
+
+on:
+  push:
+    branches: [escritorio]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: escritorio-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v5.0.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+      - name: Herramientas disponibles
+        run: |
+          node -e "const os=require('node:os'); console.log(JSON.stringify({node:process.version,cpus:os.cpus().length,memGiB:(os.totalmem()/2**30).toFixed(1)}))"
+          pnpm --version; git --version; pwsh --version; tar --version | Select-Object -First 1; python --version
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\Include" | Select-Object -ExpandProperty Name
+          Get-PSDrive -PSProvider FileSystem | Format-Table Name, @{n='LibreGB';e={[math]::Round($_.Free/1GB,1)}}
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+      - name: Comprobar configuración y herramientas del empaquetado
+        working-directory: apps/desktop
+        run: |
+          @(
+            'DSH_DESKTOP_APP_ID=io.digitalnexo.desktop'
+            'DSH_DESKTOP_AUTO_UPDATE_ENV=production'
+            'DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN=https://updates.invalid'
+          ) | Set-Content -Encoding utf8 .env.windows
+          cd ../..
+          pnpm run package:desktop:win:x64:unsigned --check
+      - name: Empaquetar (prueba de viabilidad)
+        run: pnpm run package:desktop:win:x64:unsigned
+      - name: Conservar registros
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: windows-registros-${{ github.run_id }}
+          path: |
+            apps/desktop/.desktop-build/packaging-runs/**
+          if-no-files-found: warn
+          retention-days: 5
+      - name: Conservar instalador
+        if: success()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: windows-instalador-${{ github.run_id }}
+          path: apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/*.exe
+          compression-level: 0
+          retention-days: 3
