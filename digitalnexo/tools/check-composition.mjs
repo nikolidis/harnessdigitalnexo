@@ -10,7 +10,10 @@
 //     o la busqueda web deja de ocultarse cuando no hay proveedor;
 //   - la composicion escribe avisos (un parche que no encuentra su fila).
 // Ademas compara las filas con `digitalnexo/composition-baseline.json` y lista las
-// que entran o salen, para revisarlas. `--write` regenera esa referencia.
+// que entran o salen, para revisarlas, y avisa cuando el original cambia la
+// configuracion de una fila que la capa reemplaza entera (un parche sustituye toda la
+// `config` de su fila: un campo nuevo del original se perderia sin avisar).
+// `--write` regenera esa referencia.
 //
 // Uso:  node digitalnexo/tools/check-composition.mjs [--write]
 
@@ -25,7 +28,7 @@ const write = process.argv.includes('--write')
 const PROFILES = ['web', 'headless', 'acp', 'sdk', 'sdk-minimal']
 const LAYERS = ['base', 'web-app', 'acp-app', 'sdk-minimal'].map((b) => `packages/bundle/${b}/digitalnexo.patch.yml`)
 const BASELINE = join(root, 'digitalnexo', 'composition-baseline.json')
-const SUSPECT = /deepseek|otel|telemetry|analytics|feedback/
+const SUSPECT = /deepseek|account|otel|telemetry|analytics|feedback/
 // Filas activas cuyo nombre coincide con SUSPECT pero no hablan con DeepSeek. Cada una con su motivo.
 const ALLOWED = new Map(Object.entries(JSON.parse(readFileSync(join(root, 'digitalnexo', 'tools', 'allowed-rows.json'), 'utf8'))))
 
@@ -53,6 +56,32 @@ const mustBeOff = new Set()
 for (const layer of LAYERS) {
   const text = readFileSync(join(root, layer), 'utf8')
   for (const m of text.matchAll(/^- id: (\S+)\n {2}disabled: true$/gm)) mustBeOff.add(m[1])
+}
+
+/** La `config` que el original da a una fila en un `cordis.patch.yml`, sin comentarios ni lineas vacias. */
+function originalConfig(text, id) {
+  const lines = text.split('\n')
+  const start = lines.findIndex((line) => new RegExp(`^\\s*- id: ${id}\\s*$`).test(line))
+  if (start < 0) return null
+  const indent = lines[start].indexOf('-') + 2
+  const body = []
+  let inside = false
+  for (const line of lines.slice(start + 1)) {
+    if (line.trim() === '' || line.trim().startsWith('#')) continue
+    const depth = line.length - line.trimStart().length
+    if (depth < indent) break
+    if (depth === indent) { inside = line.trim() === 'config:'; continue }
+    if (inside) body.push(line.slice(indent + 2))
+  }
+  return body.join('\n')
+}
+
+const overridden = {}
+for (const layer of LAYERS) {
+  const bundle = dirname(layer)
+  for (const match of readFileSync(join(root, layer), 'utf8').matchAll(/^- id: (\S+)\n(?: {2}(?!config:).*\n)*? {2}config:\n/gm)) {
+    overridden[`${bundle}: ${match[1]}`] = originalConfig(readFileSync(join(root, bundle, 'cordis.patch.yml'), 'utf8'), match[1]) ?? '(el original ya no define esta fila aqui)'
+  }
 }
 
 const problems = []
@@ -87,9 +116,13 @@ for (const profile of PROFILES) {
 rmSync(home, { recursive: true, force: true })
 for (const id of mustBeOff) if (!seenOff.has(id)) problems.push(`la fila "${id}" que desactiva la capa Digital Nexo ya no existe en ningun perfil (renombrada o eliminada en el original)`)
 
-if (write) writeFileSync(BASELINE, `${JSON.stringify(snapshot, null, 1)}\n`)
+if (write) writeFileSync(BASELINE, `${JSON.stringify({ ...snapshot, configuracionOriginal: overridden }, null, 1)}\n`)
 else if (existsSync(BASELINE)) {
   const baseline = JSON.parse(readFileSync(BASELINE, 'utf8'))
+  for (const [row, config] of Object.entries(overridden)) {
+    const before = baseline.configuracionOriginal?.[row]
+    if (before !== undefined && before !== config) notes.push(`! ${row}: el original cambio la configuracion de una fila que la capa reemplaza. Antes:\n${before.replace(/^/gm, '      ')}\n    Ahora:\n${config.replace(/^/gm, '      ')}\n    Revisar si la capa debe conservar algo de lo nuevo.`)
+  }
   for (const profile of PROFILES) {
     const before = new Set(baseline[profile] ?? [])
     const after = new Set(snapshot[profile] ?? [])

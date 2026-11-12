@@ -2,6 +2,8 @@
 
 English | [中文](README.zh.md)
 
+> **Digital Nexo distribution.** This repository is DeepSeek Harness with the Digital Nexo brand and without DeepSeek services; it is not an official DeepSeek release. What changes, how to run it and how it is kept up to date: [DIGITALNEXO.md](DIGITALNEXO.md) (Spanish).
+
 DeepSeek Harness (`dsh`) is an open-source agent harness developed by [DeepSeek AI](https://deepseek.com).
 
 It is built on an **everything-is-a-plugin** architecture and powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512).

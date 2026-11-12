@@ -4,10 +4,14 @@ Esta es una distribución de [DeepSeek Harness](https://github.com/deepseek-ai/d
 (`dsh`) con la marca Digital Nexo y sin los servicios de DeepSeek. El motor es el
 del proyecto original, licencia MIT, sin tocar su arquitectura.
 
-- **Base:** etiqueta `dsh-v0.2.2-rc.1`, commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`.
-- **Rama `upstream`:** copia exacta de esa etiqueta, byte a byte, sin ningún cambio
-  nuestro. Sirve para comparar y para actualizar.
-- **Rama `main`:** `upstream` más los cambios de esta página.
+- **Base:** etiqueta `dsh-v0.2.2-rc.2`, commit `ddac96760b6edf8fa0fe17cbdcf0b512f4c12b2c`
+  (la versión vigente está siempre en [`digitalnexo/UPSTREAM`](digitalnexo/UPSTREAM)).
+- **Rama `upstream`:** el original en esa etiqueta, sin ningún cambio nuestro salvo
+  que no lleva `.github/workflows` (son la integración continua de DeepSeek: aquí no
+  pueden ejecutarse). Un commit por versión importada. Sirve para comparar y para
+  actualizar.
+- **Rama `main`:** `upstream` más los cambios de esta página. Tampoco lleva
+  `.github/dependabot.yml`.
 
 DeepSeek Harness es marca registrada de DeepSeek. Esta distribución no la usa en su
 nombre ni se presenta como oficial: la nombra solo para decir sobre qué está
@@ -23,7 +27,8 @@ pnpm run build
 pnpm dsh web
 ```
 
-Abre `http://127.0.0.1:3080`. La primera vez no hay ningún modelo configurado: entra
+El comando imprime la dirección con su clave de acceso (`http://127.0.0.1:3080/?token=…`):
+ábrela tal cual, sin la clave la página no entra. La primera vez no hay ningún modelo configurado: entra
 en **Configuración → Modelos**, añade tu proveedor y su clave, y ya puedes trabajar.
 
 ## Qué cambia respecto al original
@@ -38,7 +43,7 @@ actualices, los conflictos salen en esos archivos en vez de desaparecer sin avis
 
 | Qué | Por qué |
 |---|---|
-| Cuenta DeepSeek (`deepseek-account`) y su pantalla | Esta distribución no tiene cuenta que iniciar |
+| Cuenta DeepSeek (`deepseek-account`) | Esta distribución no tiene cuenta que iniciar |
 | Rutas de modelo nativas `deepseek-official` y `deepseek-account` | Los modelos se configuran como proveedores de terceros |
 | `session-log-deepseek` | Subía la conversación entera a la API de DeepSeek |
 | `plugin-package-inventory-deepseek` | Enviaba la lista de plugins activos con cada petición |
@@ -52,8 +57,19 @@ haya clave configurada, el selector pide elegir modelo, igual que hace el origin
 cuando no hay credencial.
 
 `packages/bundle/web-app/digitalnexo.patch.yml` (solo la interfaz web) apaga además la
-sección Cuenta y su API, la página de ajustes del buscador DeepSeek, los botones de
-👍/👎 con su diálogo, y las estadísticas de la aplicación de escritorio.
+sección Cuenta, el menú de cuenta y sus avisos (`ui-settings-account`,
+`ui-account-notifications`), los botones de 👍/👎 con su diálogo, las estadísticas de
+la aplicación de escritorio, y la marca oficial (`ui-brand-official`), que incluye la
+ballena que el original dibuja al hacer clic en la pantalla de inicio vacía.
+
+Comparada en un navegador con el original en la misma versión
+(`digitalnexo/tools/compare-ui.mjs`: inicio, una conversación completa, trayectoria,
+menús del compositor, ajustes, complementos y tareas; 507 controles en 14 pantallas),
+la interfaz solo difiere en eso: donde el original tiene el menú de cuenta («Más»:
+Configuración, Comentarios, Iniciar sesión) aquí está directamente **Configuración**;
+no están los 👍/👎, la orden «Comentarios», el interruptor de subir el registro de
+sesión ni el proveedor DeepSeek en Modelos. Las diferencias admitidas están en
+`digitalnexo/tools/ui-differences.json`; cualquier otra hace fallar la comparación.
 
 `packages/bundle/acp-app/digitalnexo.patch.yml` y
 `packages/bundle/sdk-minimal/digitalnexo.patch.yml` hacen lo mismo en esos dos
@@ -68,17 +84,40 @@ el resto del catálogo, más cualquier gateway propio), la instalación de plugi
 npm o Git, `web_fetch` anónimo, los agentes, las herramientas, los espacios de trabajo,
 las tareas programadas y el resto de la aplicación.
 
-`web_search` solo aparece cuando instalas un buscador con su clave (el original trae
-Exa y Perplexity como opcionales). Sin ninguno, el modelo no ve esa herramienta; es el
-comportamiento normal del original cuando no hay proveedor de búsqueda utilizable.
+### Búsqueda web
+
+Recién instalado **no hay búsqueda web**: el único buscador que monta el original es el
+de DeepSeek, y está apagado. El modelo no ve la herramienta `web_search` (sí `web_fetch`),
+que es también lo que pasa en el original mientras no se inicia sesión en DeepSeek.
+Esto lo decide `readyRequiresProvider: true` en la fila `web` de la capa: sin esa opción
+se ofrecería al modelo un `web_search` que falla en cada llamada.
+
+Para tenerla, monta un buscador de terceros. Esta distribución conserva los dos que el
+original traía como opcionales hasta la `rc.1` y **eliminó en la `rc.2`**: Exa y
+Perplexity (`packages/web/web-search-exa`, `packages/web/web-search-perplexity`). Desde
+la `rc.2` los mantiene Digital Nexo, no DeepSeek. Añade a
+`$DSH_HOME/profiles/web/cordis.patch.yml` (por defecto `~/.dsh/profiles/web/`):
+
+```yaml
+- insert:
+    - id: web-search-exa
+      name: '@deepseek-ai/dsh-web-search-exa'
+```
+
+y arranca con `EXA_API_KEY` en el entorno (o `web-search-perplexity`,
+`@deepseek-ai/dsh-web-search-perplexity` y `PERPLEXITY_API_KEY`). Con un solo buscador
+montado se elige solo; con varios, se elige en **Complementos → Búsqueda y obtención
+web**, que lista los que haya montados. Cualquier otro buscador es un plugin que llame
+a `ctx.web.registerSearchProvider()`.
 
 ### La marca
 
 - `packages/client/ui-brand-digitalnexo`: el logo en la barra lateral y en la pantalla
   de inicio. Es un plugin que ocupa los mismos huecos que el oficial, que queda
   apagado. Sustituirlo no toca nada más.
-- Iconos, favicon y manifiesto en `apps/web/public/`, y el título de la pestaña en
-  `scripts/client-build-environment.ts`.
+- Iconos, favicon y manifiesto en `apps/web/public/`. El título de la pestaña sale de
+  `DEFAULT_CLIENT_TITLE` en `apps/web/vite.config.ts` y de la entrada `brand.localBuild`
+  de `packages/client/locale/src/locales/`.
 - El nombre del producto en los textos de la interfaz, en los ocho idiomas.
 - La carpeta de trabajo por defecto pasa de `Documentos/deepseek-harness` a
   `Documentos/digitalnexo`.
@@ -98,28 +137,40 @@ punto en el color de acento). Ver `digitalnexo/brand/README.md` para regenerarlo
 
 ## Actualizar desde el original
 
-```sh
-git remote add upstream https://github.com/deepseek-ai/deepseek-harness.git
-git fetch upstream --tags
-git checkout upstream && git merge <nueva-etiqueta> && git checkout main && git merge upstream
-```
-
-Los conflictos saldrán casi siempre en los `digitalnexo.patch.yml`: ahí es donde
-quieres verlos. Después, `pnpm install && pnpm run build` y comprueba en
-**Configuración → Complementos** que no ha reaparecido nada de DeepSeek.
+El procedimiento completo, probado al pasar de la `rc.1` a la `rc.2`, está en
+[`digitalnexo/ACTUALIZAR.md`](digitalnexo/ACTUALIZAR.md). En corto: se importa la
+etiqueta nueva en `upstream`, se fusiona en una rama de trabajo, se vuelve a aplicar
+la marca con `digitalnexo/tools/brand-text.mjs`, y `main` solo avanza si compila, si
+`digitalnexo/tools/check-composition.mjs` confirma que no ha vuelto ningún servicio
+de DeepSeek, si `digitalnexo/tools/smoke.mjs` completa una tarea de extremo a extremo
+con un proveedor de terceros, y si las pruebas no tienen ningún fallo que el original
+no tenga.
 
 Es una versión preliminar y su propio aviso dice que habrá cambios que rompan la
-compatibilidad. No actualices sin probar.
+compatibilidad.
 
 ## Compilar en una máquina sin salida a `cdn.sheetjs.com`
 
-El original instala `xlsx` directamente desde `cdn.sheetjs.com`. Si tu red no llega a
-ese dominio, apunta esa dependencia a la copia publicada en npm añadiendo a
-`pnpm-workspace.yaml`, en `overrides`:
+El original instala `xlsx` desde `cdn.sheetjs.com`. Si tu red no llega a ese dominio:
 
-```yaml
-  xlsx: 'npm:@e965/xlsx@0.20.3'
+```sh
+node digitalnexo/tools/xlsx-mirror.mjs on    # antes de pnpm install
+node digitalnexo/tools/xlsx-mirror.mjs off   # antes de confirmar cambios
 ```
 
-Es el mismo 0.20.3. Ese cambio **no está en el repositorio**: es un apaño de entorno,
-no de producto.
+`on` apunta esa dependencia a `@e965/xlsx@0.20.3`, una republicación de terceros en npm
+de la misma versión (no es el mismo fichero que distribuye SheetJS). Ese cambio **no
+está en el repositorio**: es un apaño de entorno, no de producto.
+
+## Lo que no está comprobado
+
+- Exa y Perplexity pasan sus pruebas unitarias (respuestas simuladas) y `web_search`
+  aparece al montarlos, pero no se ha hecho ninguna búsqueda con una clave real.
+- Ningún proveedor de modelo se ha probado con una clave real: las conversaciones de
+  prueba usan el servidor de modelo simulado del propio repositorio, declarado como
+  proveedor de terceros.
+- La batería `pnpm run test:snapshot` (reproducción de sesiones grabadas) y las
+  comprobaciones de documentación `pnpm run doc-sync` no se ejecutan en las
+  actualizaciones.
+- La aplicación de escritorio no se ha compilado ni probado; solo la interfaz web y
+  el perfil sin interfaz.

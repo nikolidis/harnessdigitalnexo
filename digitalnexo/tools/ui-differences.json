@@ -1,0 +1,13 @@
+{
+ "soloOriginal": [
+  "button|Editar DeepSeek (deepseek-official)",
+  "button|Mala respuesta",
+  "button|Menú de cuenta",
+  "button|buena respuesta",
+  "option|Comentarios feedback Registrar comentarios sobre esta sesión",
+  "switch|Cargar registro de sesión cuando utilice el modelo oficial A"
+ ],
+ "soloDigitalNexo": [
+  "button|Configuración"
+ ]
+}

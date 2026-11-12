@@ -83,6 +83,30 @@ for (const path of localeFiles(join(root, 'packages'))) {
   if (!check) writeFileSync(path, after)
 }
 
+// Textos que no viven en un `locales.ts`: el titulo de las compilaciones propias (lo que
+// se ve en la pestana y, sin plugin de marca, en la barra lateral) y las expectativas de
+// las pruebas que comprueban esos textos. Cada regla es [fichero o carpeta, patron, sustituto].
+const LITERALS = [
+  ['packages/client/locale/src/locales', /^(\s*'brand\.localBuild': ).*,$/gm, `$1'${PRODUCT}',`],
+  ['packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx', /DSH Local Build/g, PRODUCT],
+  ['packages/experimental/liveshare/tests/viewer-brand.client.spec.tsx', /DSH (\d)/g, `${PRODUCT} $1`],
+  ['packages/experimental/client-ui-voice-input/tests/preparation.client.spec.tsx', /运行 DSH 的机器/g, `运行 ${PRODUCT} 的机器`],
+]
+for (const [target, pattern, replacement] of LITERALS) {
+  const full = join(root, target)
+  let files
+  try { files = statSync(full).isDirectory() ? readdirSync(full).filter((n) => n.endsWith('.ts')).map((n) => join(full, n)) : [full] }
+  catch { console.log(`   ?  ${target} ya no existe: revisar la regla en brand-text.mjs`); continue }
+  for (const path of files) {
+    const before = readFileSync(path, 'utf8')
+    const after = before.replace(pattern, replacement)
+    if (after === before) continue
+    total += 1
+    touched.push(`   1  ${relative(root, path).split(sep).join('/')}`)
+    if (!check) writeFileSync(path, after)
+  }
+}
+
 for (const line of touched) console.log(line)
 console.log(`${check ? 'PENDIENTE' : 'APLICADO'}: ${total} lineas en ${touched.length} ficheros`)
 if (check && total > 0) process.exit(1)

@@ -14,15 +14,12 @@
 
 # ── DeepSeek account surfaces ───────────────────────────────────────────────
 # The Account settings section, the sidebar account menu, the credit
-# onboarding, and the Remote they call.
+# onboarding, and the server-authored account notification cards beside
+# that menu.
 - id: ui-settings-account
   disabled: true
 
-- id: account-controller
-  disabled: true
-
-# ── DeepSeek web-search settings page ───────────────────────────────────────
-- id: ui-settings-web-search
+- id: ui-account-notifications
   disabled: true
 
 # ── Feedback ────────────────────────────────────────────────────────────────

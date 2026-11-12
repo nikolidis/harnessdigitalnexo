@@ -16,16 +16,10 @@ const CLIENT_BUILD_ENV_PREFIX = 'DSH_CLIENT_'
 /** Non-public selector used by build orchestration to request a named client profile. */
 export const CLIENT_BUILD_PROFILE_SELECTOR = 'DSH_BUILD_CLIENT_PROFILE'
 
-/**
- * Product title of this distribution. Every client artifact built from the
- * checkout embeds it unless the build process supplies its own DSH_CLIENT_TITLE.
- */
-export const DISTRIBUTION_CLIENT_TITLE = 'Digital Nexo'
-
 /** Public client environment required by official DSH artifacts. */
 const OFFICIAL_CLIENT_BUILD_ENVIRONMENT = {
   DSH_CLIENT_BUILD_PROFILE: 'official',
-  DSH_CLIENT_TITLE: DISTRIBUTION_CLIENT_TITLE,
+  DSH_CLIENT_TITLE: 'DeepSeek Harness',
 } as const
 
 /** Public variable carrying the source commit embedded in client artifacts. */
@@ -132,7 +126,6 @@ export function repositoryClientBuildEnvironment(
   delete inherited.DSH_CLIENT_VERSION
   const dirty = repositoryGitDirty(root)
   return {
-    DSH_CLIENT_TITLE: DISTRIBUTION_CLIENT_TITLE,
     ...inherited,
     DSH_CLIENT_COMMIT_HASH: repositoryCommitHash(root, environment),
     ...(dirty === true ? { DSH_CLIENT_GIT_DIRTY: 'true' } : {}),
@@ -213,7 +206,6 @@ export function resolveClientBuildEnvironment(
       DSH_CLIENT_VERSION: version,
       ...(profile === 'official' ? OFFICIAL_CLIENT_BUILD_ENVIRONMENT : {
         DSH_CLIENT_BUILD_PROFILE: 'local',
-        DSH_CLIENT_TITLE: DISTRIBUTION_CLIENT_TITLE,
         ...(environment.DSH_CLIENT_GIT_DIRTY === 'true' ? { DSH_CLIENT_GIT_DIRTY: 'true' } : {}),
       }),
     }
