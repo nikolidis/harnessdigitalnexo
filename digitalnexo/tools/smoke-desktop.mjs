@@ -9,6 +9,9 @@
 //   - el aviso de primer arranque es el de Digital Nexo;
 //   - el modelo simulado responde;
 //   - no hay errores de consola, de pagina ni HTTP, ni peticiones fuera de la maquina;
+//   - ningun proceso de la aplicacion (ventana, Host, ayudantes) abre conexiones fuera de la maquina:
+//     se muestrean cada medio segundo los sockets de su arbol de procesos (`ss` en Linux,
+//     `Get-NetTCPConnection` en Windows), porque el proceso principal y el Host no pasan por la ventana.
 // Lista para revisar, sin fallar, cada linea visible que nombre DeepSeek fuera del aviso de atribucion.
 // Guarda una captura por pantalla y `informe.json` en la carpeta de salida.
 //
@@ -16,7 +19,9 @@
 //       En Linux sin pantalla, delante: xvfb-run -a
 // Sale con 1 si algo falla.
 
-import { spawn, spawnSync } from 'node:child_process'
+import { execFile, spawn, spawnSync } from 'node:child_process'
+import { reverse } from 'node:dns/promises'
+import { promisify } from 'node:util'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { createServer } from 'node:net'
@@ -66,6 +71,85 @@ function killTree(child) {
   }
 }
 
+const LOOPBACK = /^(?:127\.|::1$|::ffff:127\.|0\.0\.0\.0$|::$|\*$)/
+
+/**
+ * Muestrea las conexiones de red del arbol de procesos que cuelga de `rootPid`.
+ * @returns `stop()`, que deja de muestrear y devuelve las conexiones con destino fuera de la maquina.
+ */
+function watchConnections(rootPid) {
+  const found = new Map()
+  const remember = (process, peer) => {
+    const host = peer.replace(/:\d+$/, '').replace(/^\[|\]$/g, '').replace(/%.*$/, '')
+    if (!LOOPBACK.test(host) && !found.has(peer)) found.set(peer, { destino: peer, host, proceso: process })
+  }
+  if (process.platform === 'win32') {
+    const script = `$root = ${rootPid}
+while ($true) {
+  $parents = @{}
+  Get-CimInstance Win32_Process | ForEach-Object { $parents[[int]$_.ProcessId] = [int]$_.ParentProcessId }
+  $tree = New-Object 'System.Collections.Generic.HashSet[int]'; [void]$tree.Add($root)
+  do { $grew = $false; foreach ($id in @($parents.Keys)) { if (-not $tree.Contains($id) -and $tree.Contains($parents[$id])) { [void]$tree.Add($id); $grew = $true } } } while ($grew)
+  Get-NetTCPConnection -ErrorAction SilentlyContinue | Where-Object { $_.State -ne 'Listen' -and $tree.Contains([int]$_.OwningProcess) } |
+    ForEach-Object { '{0} {1}:{2}' -f $_.OwningProcess, $_.RemoteAddress, $_.RemotePort }
+  Start-Sleep -Milliseconds 500
+}`
+    const sampler = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `${script.replace('Start-Sleep', "'muestra'\n  Start-Sleep")}`],
+      { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true })
+    let samples = 0
+    let pending = ''
+    sampler.stdout.on('data', (chunk) => {
+      pending += chunk
+      const lines = pending.split(/\r?\n/)
+      pending = lines.pop()
+      for (const line of lines) {
+        if (line.trim() === 'muestra') { samples += 1; continue }
+        const [pid, peer] = line.trim().split(' ')
+        if (peer) remember(`pid ${pid}`, peer.includes('.') ? peer : `[${peer.replace(/:(\d+)$/, ']:$1')}`)
+      }
+    })
+    return { stop: async () => {
+      sampler.kill()
+      if (samples === 0) throw new Error('no se pudieron muestrear las conexiones (PowerShell no devolvio ninguna muestra)')
+      return [...found.values()]
+    } }
+  }
+  const run = promisify(execFile)
+  let stopped = false
+  const sample = async () => {
+    const parents = new Map()
+    for (const line of (await run('ps', ['-eo', 'pid=,ppid='])).stdout.trim().split('\n')) {
+      const [pid, ppid] = line.trim().split(/\s+/).map(Number)
+      parents.set(pid, ppid)
+    }
+    const tree = new Set([rootPid])
+    for (let grew = true; grew;) {
+      grew = false
+      for (const [pid, ppid] of parents) if (!tree.has(pid) && tree.has(ppid)) { tree.add(pid); grew = true }
+    }
+    for (const line of (await run('ss', ['-tunpH'])).stdout.split('\n')) {
+      const columns = line.trim().split(/\s+/)
+      if (columns.length < 6 || columns[1] === 'LISTEN' || columns[1] === 'UNCONN') continue
+      const owners = [...line.matchAll(/\("([^"]+)",pid=(\d+)/g)].filter(([, , pid]) => tree.has(Number(pid)))
+      if (owners.length > 0) remember(owners.map(([, name, pid]) => `${name} ${pid}`).join(', '), columns[5])
+    }
+  }
+  let samples = 0
+  let failure
+  const loop = (async () => {
+    while (!stopped) {
+      await sample().then(() => { samples += 1 }, (error) => { failure = error })
+      await new Promise(done => setTimeout(done, 500))
+    }
+  })()
+  return { stop: async () => {
+    stopped = true
+    await loop
+    if (samples === 0) throw new Error(`no se pudieron muestrear las conexiones (${failure?.message ?? 'sin muestras'})`)
+    return [...found.values()]
+  } }
+}
+
 /** Fallo definitivo dentro de una espera: corta la espera en vez de reintentar. */
 class Abort extends Error {}
 
@@ -84,6 +168,7 @@ async function waitFor(check, timeoutMs, what) {
 }
 
 let browser
+let connections
 try {
   // 1. Modelo simulado.
   const modelPort = await freePort()
@@ -124,6 +209,7 @@ try {
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   children.push(app)
+  connections = watchConnections(app.pid)
   app.stdout.on('data', chunk => { appOutput += chunk })
   app.stderr.on('data', chunk => { appOutput += chunk })
   const started = Date.now()
@@ -174,6 +260,17 @@ catch (failure) {
   problems.push(String(failure?.message ?? failure))
 }
 finally {
+  if (connections !== undefined) {
+    const external = await connections.stop().catch((failure) => { problems.push(failure.message); return [] })
+    for (const connection of external) {
+      connection.nombre = await Promise.race([
+        reverse(connection.host).then(names => names.join(', '), () => ''),
+        new Promise(done => setTimeout(() => done(''), 3000)),
+      ])
+    }
+    report.conexionesExternas = external
+    for (const { destino, nombre, proceso } of external) problems.push(`conexion fuera de la maquina: ${destino}${nombre ? ` (${nombre})` : ''} desde ${proceso}`)
+  }
   await browser?.close().catch(() => {})
   for (const child of children) killTree(child)
   await new Promise(done => setTimeout(done, 1500))

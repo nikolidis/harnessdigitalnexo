@@ -310,6 +310,11 @@ vi.mock('../src/policy-test-auth.ts', () => ({ DesktopPolicyTestAuth: class {
   readonly request: typeof fetch = (input, init) => fetch(input, init)
 } }))
 
+// Digital Nexo ships without the native account welcome and without updates. These suites keep
+// exercising the original shell's flows; `describe('Digital Nexo distribution')` covers the shipped settings.
+const distribution = vi.hoisted(() => ({ productName: 'Digital Nexo', accountSignIn: true, updates: true }))
+vi.mock('../src/distribution.ts', () => ({ DESKTOP_DISTRIBUTION: distribution }))
+
 vi.mock('electron', () => ({
   app: harness.app,
   BrowserWindow: harness.FakeWindow,
@@ -457,6 +462,7 @@ function applicationMenuItems(): MenuItemConstructorOptions[] {
 beforeEach(() => {
   vi.resetModules()
   vi.clearAllMocks()
+  Object.assign(distribution, { accountSignIn: true, updates: true })
   harness.dialog.showMessageBox.mockReset()
   harness.dialog.showMessageBox.mockResolvedValue({ response: 1 })
   testAuth.login.mockReset()
@@ -882,7 +888,7 @@ describe('desktop main startup', () => {
     await vi.advanceTimersByTimeAsync(0)
     const zh = locale === 'zh-CN'
     expect(harness.dialog.showMessageBox).toHaveBeenLastCalledWith(expect.objectContaining({
-      type: 'info', title: zh ? '关于 DeepSeek Harness' : 'About DeepSeek Harness', message: 'DeepSeek Harness',
+      type: 'info', title: zh ? '关于 Digital Nexo' : 'About Digital Nexo', message: 'Digital Nexo',
       detail: zh ? '版本 V1.0.0' : 'Version V1.0.0', buttons: [zh ? '确定' : 'OK'], cancelId: 0,
     }))
     // A dialog that cannot open is logged, not surfaced as an unhandled rejection.
@@ -1391,7 +1397,7 @@ describe('desktop main startup', () => {
     expect(() => handler(event, 'application', NaN, 34)).toThrow('invalid popup request')
     const application = handler(event, 'application', 48, 34)
     expect(harness.menu.buildFromTemplate.mock.lastCall![0].map(item => item.label ?? item.type)).toEqual([
-      '关于 DeepSeek Harness', 'separator', '检查更新…', '管理 dsh 命令…', 'separator', zh.toggleDevToolsMenu, 'separator', '退出',
+      '关于 Digital Nexo', 'separator', '检查更新…', '管理 dsh 命令…', 'separator', zh.toggleDevToolsMenu, 'separator', '退出',
     ])
     expect(harness.popup.mock.lastCall![0]).toMatchObject({ window, x: 48, y: 34 })
     expect(harness.popup.mock.lastCall![0].callback).toBeTypeOf('function')
@@ -3142,4 +3148,52 @@ it('disables native product events for a disabled Desktop launch', async () => {
   await harness.navigated.promise
   expect(harness.analytics).not.toHaveBeenCalled()
   harness.analyticsEnabled = true
+})
+
+describe('Digital Nexo distribution', () => {
+  beforeEach(() => { Object.assign(distribution, { accountSignIn: false, updates: false }) })
+
+  async function workspace() {
+    await import('../src/main.ts')
+    await harness.preparing.promise
+    harness.prepared.resolve()
+    await harness.hostStarted.promise
+    harness.hosts[0]!.ready.resolve()
+    await harness.navigated.promise
+    return harness.windows[0]!
+  }
+
+  it.each(['darwin', 'win32', 'linux'] as const)('offers no update check in the %s application menu', async (platform) => {
+    vi.stubGlobal('process', { ...process, platform })
+    vi.spyOn(harness.app, 'getPreferredSystemLanguages').mockReturnValue(['en'])
+    await workspace()
+    const labels = applicationMenuItems().filter(item => item.visible !== false).map(item => item.role === 'quit' ? 'quit' : item.label ?? item.type)
+    expect(labels).not.toContain(en.checkUpdatesMenu)
+    expect(labels.slice(0, 2)).toEqual([en.aboutMenu, 'separator'])
+    expect(labels.at(-1)).toBe('quit')
+  })
+
+  it('opens the workspace directly and never checks for updates in the foreground or on resume', async () => {
+    const window = await workspace()
+    expect(window.urls).toEqual(['dsh-app://app/'])
+    expect(harness.windows).toHaveLength(1)
+    harness.powerMonitor.emit('resume')
+    window.emit('focus')
+    await vi.advanceTimersByTimeAsync(7 * 24 * 60 * 60 * 1000)
+    expect(harness.updateCheck).not.toHaveBeenCalled()
+  })
+
+  it('does not follow DeepSeek account authorization', async () => {
+    await workspace()
+    await Promise.resolve(invoke(DESKTOP_IPC.boot))
+    const window = harness.windows[0]!
+    window.focus.mockClear()
+    harness.publishAccount({
+      status: 'signed-out', links: { usageUrl: 'https://platform.deepseek.com/usage', topUpUrl: 'https://platform.deepseek.com/top_up' },
+      attempt: { id: 'test-ignored-attempt' as NonNullable<AccountView['attempt']>['id'], phase: 'waiting-browser',
+        authorizeUrl: 'https://platform.deepseek.com/dsh/authorize?state=state-1' },
+    })
+    expect(harness.openExternal).not.toHaveBeenCalled()
+    expect(window.focus).not.toHaveBeenCalled()
+  })
 })

@@ -47,13 +47,15 @@ it('rejects login origins in production', () => {
     .toThrow('must not configure allowedAuthOrigins')
 })
 
-it.each([{ unsigned: true }, { prepareOnly: true }, {}])('requires policy outside local macOS builds in %j', (options) => {
-  for (const platform of ['win32', 'darwin'] as const) {
-    if (platform === 'darwin' && options.unsigned) {
+// Digital Nexo: an unsigned build carries no update policy on any platform, so it needs none.
+it.each([{ unsigned: true }, { prepareOnly: true }, {}])('requires policy outside local unsigned builds in %j', (options) => {
+  for (const platform of ['win32', 'darwin', 'linux'] as const) {
+    if (options.unsigned) {
       expect(() => { validateDesktopPackageEnvironment({ DSH_DESKTOP_APP_ID: 'com.example.test' }, { platform, arch: 'x64' }, options) })
         .not.toThrow()
       continue
     }
+    if (platform === 'linux') continue
     expect(() => { validateDesktopPackageEnvironment({ DSH_DESKTOP_APP_ID: 'com.example.test' }, { platform, arch: 'x64' }, options) })
       .toThrow('DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN')
   }

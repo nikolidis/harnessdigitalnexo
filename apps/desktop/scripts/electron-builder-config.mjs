@@ -115,6 +115,9 @@ export function createElectronBuilderConfig(
       // and updater cache, so it can sit beside an installed DeepSeek Harness without sharing them.
       name: '@digitalnexo/desktop',
       author: { name: 'Digital Nexo' },
+      // The .deb metadata requires a homepage; Linux desktops match windows to the .desktop entry by this name.
+      homepage: 'https://github.com/nikolidis/harnessdigitalnexo',
+      desktopName: 'digitalnexo.desktop',
       dshDesktopAppId: appId,
       dshDesktopUpdateChannel: update?.channel ?? 'nightly',
       ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
@@ -124,8 +127,8 @@ export function createElectronBuilderConfig(
     productName: 'Digital Nexo',
     // The default copyright uses author.name; this line names the product instead.
     copyright: `Copyright © ${new Date().getFullYear()} \${productName}`,
-    // Digital Nexo publishes only unsigned builds, so their names carry no "-unsigned" marker.
-    artifactName: `digitalnexo-\${version}-\${os}-\${arch}.\${ext}`,
+    // Digital Nexo publishes only unsigned builds, so their names carry no "-unsigned" marker; other debugging modes keep theirs.
+    artifactName: `digitalnexo-\${version}-\${os}-\${arch}${unsigned ? '' : output.suffix}.\${ext}`,
     directories: { output: output.directory },
     asar: true,
     electronDist: buildPaths.electron,
@@ -267,7 +270,8 @@ export function createElectronBuilderConfig(
       synopsis: 'Agent workspace for third-party models and plugins',
       maintainer: 'Digital Nexo',
       vendor: 'Digital Nexo',
-      desktop: { entry: { StartupWMClass: 'Digital Nexo' } },
+      // Names the installed entry after desktopName, so its StartupWMClass matches the window's app_id.
+      syncDesktopName: true,
     },
     deb: {
       // Electron's runtime libraries on Debian and Ubuntu, as electron-builder declares by default,
