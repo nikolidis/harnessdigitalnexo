@@ -62,8 +62,10 @@ git ls-remote --tags $ORIG 'refs/tags/dsh-v*' | grep -v '\^{}' | grep -v -e -alp
 
 Si la última etiqueta es la de `UPSTREAM`, no hay nada que hacer.
 
-Si ya existe la rama `actualizacion/<nueva>` en `origin`, un intento anterior no
-llegó a verde: no se rehace. Se lee su `digitalnexo/PENDIENTE.md`; si lo que falló
+Si ya existe la rama `actualizacion/<nueva>` en `origin` y **no** está contenida en
+`main` (`git merge-base --is-ancestor origin/actualizacion/<nueva> origin/main` falla),
+un intento anterior no llegó a verde: no se rehace. Si está contenida en `main`, es
+una actualización ya terminada y no cuenta. Se lee su `digitalnexo/PENDIENTE.md`; si lo que falló
 era del entorno (red, memoria, tiempo) se reintenta sobre esa rama, y si era del
 código y no se sabe arreglar, se informa de que sigue pendiente.
 
