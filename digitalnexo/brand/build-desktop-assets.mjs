@@ -1,5 +1,6 @@
 // Build the Digital Nexo artwork of the desktop application and its Windows installer from logo.json:
-//   apps/desktop/resources/icon.svg, icon.png               application icon (Linux packages, About panel)
+//   apps/desktop/resources/icon.svg, icon.png               application icon (Linux packages, About panel);
+//                                                           icon.svg keeps the original's layout (see layeredTile)
 //   apps/desktop/resources/icon-windows.svg, .png           Windows application, installer and uninstaller icon
 //   apps/desktop/resources/icon-macos.svg, .png             macOS icon (inset tile; this distribution builds no macOS package)
 //   apps/desktop/resources/tray-windows.ico                 Windows tray icon, one bitmap per display scale
@@ -45,6 +46,33 @@ function tile({ edge, inset = 0, radius = 0.225, ratio = 0.56, tile = INK, glyph
     + `<path d="${L.monogram.letters}" fill="${glyph}"/><path d="${L.monogram.dot}" fill="${accent}"/></g></svg>\n`
 }
 
+/**
+ * The 1024-unit tile in the layout of the original's `icon.svg`, which the Web install icon
+ * generator (`apps/web/scripts/render-app-icons.ts`) reads: a 1104-unit canvas with the tile
+ * inset at (40, 32), the tile inside the shadow group and the "D." inside the artwork group,
+ * named by the generator's filter ids. Both filters pass the drawing through unchanged,
+ * because the Digital Nexo tile has no shadow.
+ */
+function layeredTile() {
+  const canvas = 1104
+  const edge = 1024
+  const left = 40
+  const top = 32
+  const scale = (edge * 0.56) / L.monogram.height
+  const x = left + (edge - L.monogram.width * scale) / 2
+  const y = top + (edge - L.monogram.height * scale) / 2
+  const passThrough = id => `<filter id="${id}" x="0" y="0" width="${canvas}" height="${canvas}" filterUnits="userSpaceOnUse"`
+    + ` color-interpolation-filters="sRGB"><feMerge><feMergeNode in="SourceGraphic"/></feMerge></filter>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas}" height="${canvas}" viewBox="0 0 ${canvas} ${canvas}" fill="none">\n`
+    + '<g filter="url(#filter0_d_1637_371)">\n'
+    + `<rect x="${left}" y="${top}" width="${edge}" height="${edge}" rx="${round(edge * 0.225)}" fill="${INK}"/>\n`
+    + '<g filter="url(#filter1_ddi_1637_371)">\n'
+    + `<g transform="translate(${round(x)} ${round(y)}) scale(${round(scale)})">`
+    + `<path d="${L.monogram.letters}" fill="${PAPER}"/><path d="${L.monogram.dot}" fill="${ACCENT_LIGHT}"/></g>\n`
+    + '</g>\n</g>\n'
+    + `<defs>\n${passThrough('filter0_d_1637_371')}\n${passThrough('filter1_ddi_1637_371')}\n</defs>\n</svg>\n`
+}
+
 /** Installer header: tile above the wordmark, centred on a transparent canvas of the original's 600x196 layout. */
 function header({ scale, dark }) {
   const width = 600 * scale
@@ -73,7 +101,7 @@ function sidebar() {
 }
 
 const svgs = {
-  'icon.svg': tile({ edge: 1024 }),
+  'icon.svg': layeredTile(),
   'icon-windows.svg': tile({ edge: 1024, inset: 32 }),
   'icon-macos.svg': tile({ edge: 1024, inset: 100, radius: 0.2237 }),
 }
@@ -93,7 +121,8 @@ async function png(path, width, height, svg, transparent = true) {
   if (path !== undefined) writeFileSync(path, bytes)
   return bytes
 }
-await png(`${out}/icon.png`, 1024, 1024, svgs['icon.svg'])
+// The PNG is the bare tile edge to edge, without the generator's canvas around it.
+await png(`${out}/icon.png`, 1024, 1024, tile({ edge: 1024 }))
 await png(`${out}/icon-windows.png`, 1024, 1024, svgs['icon-windows.svg'])
 await png(`${out}/icon-macos.png`, 1024, 1024, svgs['icon-macos.svg'])
 await png(`${out}/brand.png`, 600, 196, header({ scale: 1, dark: false }))

@@ -107,8 +107,8 @@ const LITERALS = [
   // Pruebas de la aplicacion de escritorio que comprueban textos con el nombre del producto
   // (menus, dialogos, bandeja, instalador) y el nombre de los paquetes que genera.
   ...['tray.spec.ts', 'background-notice.spec.ts', 'quit-confirmation.spec.ts', 'main-startup.spec.ts', 'cli-launcher.spec.ts',
-    'installer-packaging.spec.ts', 'macos-signature.spec.ts', 'expected/about-panel.json', 'expected/application-menu-en-US.json',
-    'expected/application-menu-zh-CN.json'].map((file) => [`apps/desktop/tests/${file}`, /DeepSeek Harness/g, PRODUCT]),
+    'installer-packaging.spec.ts', 'macos-signature.spec.ts', 'package-macos.spec.ts', 'expected/about-panel.json',
+    'expected/application-menu-en-US.json', 'expected/application-menu-zh-CN.json'].map((file) => [`apps/desktop/tests/${file}`, /DeepSeek Harness/g, PRODUCT]),
   // Digital Nexo solo publica paquetes sin firmar, asi que su nombre no lleva la marca `-unsigned`.
   ...['installer-packaging.spec.ts', 'macos-signature.spec.ts', 'windows-update-publisher.spec.ts'].map((file) => [
     `apps/desktop/tests/${file}`, /deepseek-harness-\$\{version\}-\$\{os\}-\$\{arch\}(?:-unsigned)?\.\$\{ext\}/g,
