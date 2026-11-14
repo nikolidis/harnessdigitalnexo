@@ -1,7 +1,8 @@
 # Actualizar Digital Nexo desde DeepSeek Harness
 
 Procedimiento probado: es el que llevó esta distribución de `dsh-v0.2.2-rc.1` a
-`dsh-v0.2.2-rc.2`. La versión que hay ahora está en [`UPSTREAM`](UPSTREAM).
+`dsh-v0.2.2-rc.2` y de esta a `dsh-v0.2.2-rc.3`. La versión que hay ahora está en
+[`UPSTREAM`](UPSTREAM).
 
 ## Reglas
 
@@ -48,6 +49,8 @@ mkdir -p ~/node24 && (cd ~/node24 && npm init -y >/dev/null && npm install node@
 export PATH=~/node24/node_modules/node/bin:$PATH
 export NODE_USE_ENV_PROXY=1      # solo detrás de un proxy HTTPS
 command -v pnpm || npm install -g pnpm@11
+# la compilación nativa busca las cabeceras de Node-API junto al ejecutable de node
+[ -e ~/node24/node_modules/node/include ] || ln -s node_modules/node-linux-x64/include ~/node24/node_modules/node/include
 ```
 
 En todo lo que sigue, `ORIG=https://github.com/deepseek-ai/deepseek-harness.git`.
@@ -185,12 +188,14 @@ node digitalnexo/tools/xlsx-mirror.mjs on     # solo si el entorno no llega a cd
 pnpm install
 node_modules/.bin/tsx scripts/clean.ts        # quita restos de paquetes que el original borró
 node_modules/.bin/tsx scripts/build.ts --scope artifacts
-node_modules/.bin/tsx scripts/build.ts --scope check
+node_modules/.bin/tsx scripts/build.ts --scope check --serial
 node digitalnexo/tools/check-composition.mjs
 node digitalnexo/tools/smoke.mjs
 ```
 
-Las dos fases de compilación van por separado: juntas no caben en 8 GB de memoria.
+Las dos fases de compilación van por separado: juntas no caben en 8 GB de memoria. Por
+lo mismo, `--scope check` va con `--serial`: sin él, con 2 CPU lanza a la vez las
+comprobaciones de Host y Client y la de Host muere por falta de memoria (`SIGKILL`).
 
 `smoke.mjs` no necesita navegador ni claves: declara como proveedor de terceros el
 servidor de modelo simulado del repositorio y comprueba que el perfil `headless`
