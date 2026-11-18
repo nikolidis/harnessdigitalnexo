@@ -1,7 +1,7 @@
 # Actualizar Digital Nexo desde DeepSeek Harness
 
 Procedimiento probado: es el que llevó esta distribución de `dsh-v0.2.2-rc.1` a
-`dsh-v0.2.2-rc.2` y de esta a `dsh-v0.2.2-rc.3`. La versión que hay ahora está en
+`dsh-v0.2.2-rc.4`, versión a versión. La versión que hay ahora está en
 [`UPSTREAM`](UPSTREAM).
 
 ## Reglas
