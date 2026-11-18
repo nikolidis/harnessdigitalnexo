@@ -42,6 +42,12 @@ export function instrument(page, local = []) {
 }
 
 /**
+ * Control que indica que una seccion de ajustes ya tiene su contenido. La lista de complementos llega del
+ * Host despues del clic y a veces tarda mas que la espera fija: sin esto la pantalla se apunta vacia.
+ */
+const SECTION_READY = { 'Complementos integrados': /\btool-fs\b/ }
+
+/**
  * Recorre una pagina ya abierta: avisos de primer arranque, una conversacion completa con el modelo
  * simulado, trayectoria, menus del compositor, ajustes, complementos y tareas.
  * @param page - pagina con la aplicacion cargada (ya hay algun boton visible).
@@ -103,7 +109,10 @@ export async function walkPage(page, { answer, shot = async () => {} }) {
   if (settings) {
     await record('ajustes')
     for (const section of ['General', 'Modelos', 'Complementos integrados', 'Ajustes preestablecidos del agente']) {
-      if (await click(section, { exact: true })) await record(`ajustes/${section}`)
+      if (!(await click(section, { exact: true }))) continue
+      const ready = SECTION_READY[section]
+      if (ready) await page.getByRole('button', { name: ready }).first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {})
+      await record(`ajustes/${section}`)
     }
     await click('Cerrar')
     await page.waitForTimeout(700)
