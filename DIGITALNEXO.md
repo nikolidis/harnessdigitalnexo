@@ -4,7 +4,7 @@ Esta es una distribución de [DeepSeek Harness](https://github.com/deepseek-ai/d
 (`dsh`) con la marca Digital Nexo y sin los servicios de DeepSeek. El motor es el
 del proyecto original, licencia MIT, sin tocar su arquitectura.
 
-- **Base:** etiqueta `dsh-v0.2.2-rc.4`, commit `3f321d32bfe382212a8ed8785c1d47a5a300aa23`
+- **Base:** etiqueta `dsh-v0.2.2-rc.5`, commit `9c2670d3bce5275e0d1610272958121af87787bb`
   (la versión vigente está siempre en [`digitalnexo/UPSTREAM`](digitalnexo/UPSTREAM)).
 - **Rama `upstream`:** el original en esa etiqueta, sin ningún cambio nuestro salvo
   que no lleva `.github/workflows` (son la integración continua de DeepSeek: aquí no
@@ -204,7 +204,7 @@ punto en el color de acento). Ver `digitalnexo/brand/README.md` para regenerarlo
 
 ## Actualizar desde el original
 
-El procedimiento completo, probado en cada versión desde la `rc.1` hasta la `rc.4`, está en
+El procedimiento completo, probado en cada versión desde la `rc.1` hasta la `rc.5`, está en
 [`digitalnexo/ACTUALIZAR.md`](digitalnexo/ACTUALIZAR.md). En corto: se importa la
 etiqueta nueva en `upstream`, se fusiona en una rama de trabajo, se vuelve a aplicar
 la marca con `digitalnexo/tools/brand-text.mjs`, y `main` solo avanza si compila, si

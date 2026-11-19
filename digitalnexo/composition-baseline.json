@@ -677,7 +677,7 @@
  ],
  "configuracionOriginal": {
   "packages/bundle/base: agent-default-model": "provider: deepseek-official\nmodel: deepseek-flash",
-  "packages/bundle/base: web": "searchProvider: deepseek-search-api\nfetchProvider: http",
+  "packages/bundle/base: web": "fetchProvider: http",
   "packages/bundle/acp-app: acp": "provider: deepseek-official\nmodel: deepseek-v4-flash"
  }
 }
